@@ -1,0 +1,105 @@
+"""
+SHAP Explainability Module: generates local and global explanations for base models.
+Identifies which team characteristics (features) drive the winner prediction.
+"""
+import os
+import sys
+import json
+import logging
+import pandas as pd
+import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+from config import get_tournament_paths
+from src.models.base_model import FEATURE_COLS, TARGET_COL
+
+logger = logging.getLogger(__name__)
+
+try:
+    import shap
+    HAS_SHAP = True
+except ImportError:
+    HAS_SHAP = False
+    logger.warning("SHAP not installed. Explainability will be skipped.")
+
+
+def run_explainability(model_name: str = "xgboost", tournament: str = "ipl"):
+    """Generate SHAP summary plots for the given model."""
+    if not HAS_SHAP:
+        return
+
+    paths = get_tournament_paths(tournament)
+    model_path = os.path.join(paths["models"], f"{model_name}.pkl")
+    if not os.path.exists(model_path):
+        logger.error(f"Model file not found for explainability: {model_path}")
+        return
+
+    # Load model and data
+    import joblib
+    model = joblib.load(model_path)
+    df = pd.read_csv(paths["features"])
+    X = df[FEATURE_COLS]
+
+    # Sample a manageable subset if X is large
+    if len(X) > 1000:
+        X_sample = X.sample(1000, random_state=42)
+    else:
+        X_sample = X
+
+    logger.info(f"Generating SHAP values for model: {model_name}...")
+    
+    # Check model type for appropriate explainer
+    # XGBoost and LightGBM use TreeExplainer; Neural Network might need KernelExplainer or DeepExplainer
+    try:
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(X_sample)
+    except Exception as e:
+        logger.warning(f"TreeExplainer failed ({e}). Falling back to simple KernelExplainer subset...")
+        explainer = shap.KernelExplainer(model.predict_proba, shap.sample(X, 50))
+        shap_values = explainer.shap_values(X_sample.iloc[:100])
+
+    # Global Summary Plot
+    results_dir = paths["results"]
+    os.makedirs(results_dir, exist_ok=True)
+    summary_plot_path = os.path.join(results_dir, f"shap_summary_{model_name}.png")
+    
+    plt.figure(figsize=(12, 8))
+    # Note: shap_values for binary classification is a list with two arrays
+    # We use the index 1 for the positive (Win) prediction
+    if isinstance(shap_values, list):
+        shap.summary_plot(shap_values[1], X_sample, show=False, plot_size=None, color_bar_label="Win Probability Driver")
+    else:
+        shap.summary_plot(shap_values, X_sample, show=False, plot_size=None, color_bar_label="Impact on Win Probability")
+        
+    plt.title(f"SHAP Feature Importance: {model_name}", fontsize=15, fontweight="bold", pad=20)
+    plt.savefig(summary_plot_path, dpi=180, bbox_inches="tight")
+    plt.close()
+    
+    logger.info(f"SHAP summary plot saved to {summary_plot_path}")
+    
+    # Output top 10 impactful features to JSON for frontend
+    # For global importance, compute mean absolute SHAP value
+    if isinstance(shap_values, list):
+        global_importance = np.abs(shap_values[1]).mean(axis=0)
+    else:
+        global_importance = np.abs(shap_values).mean(axis=0)
+        
+    importance_dict = dict(zip(FEATURE_COLS, global_importance))
+    sorted_importance = sorted(importance_dict.items(), key=lambda x: x[1], reverse=True)[:10]
+    
+    
+    with open(os.path.join(results_dir, f"shap_importance_{model_name}.json"), "w") as f:
+        json.dump(sorted_importance, f, indent=2)
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--tournament", default="ipl")
+    parser.add_argument("--model", default="lightgbm")
+    args = parser.parse_args()
+    
+    logging.basicConfig(level=logging.INFO)
+    run_explainability(args.model, args.tournament)
