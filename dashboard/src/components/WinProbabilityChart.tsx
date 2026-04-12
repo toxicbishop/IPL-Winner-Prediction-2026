@@ -12,44 +12,61 @@ interface WinProbabilityChartProps {
 const WinProbabilityChart: React.FC<WinProbabilityChartProps> = ({ data, loading }) => {
   return (
     <div className="card">
-      <div className="card-header">
-        <h3>Win Probability</h3>
+      <div className="card-terminal-bar">
+        <span className="terminal-id">CHART_ID: WIN_PROB_01</span>
+        <span className="terminal-id" style={{ color: 'var(--color-primary)' }}>LIVE</span>
       </div>
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-          {[...Array(10)].map((_, i) => (
-            <div key={i} className="skeleton" style={{ height: '24px', width: '100%' }} />
-          ))}
+      <div className="card-body">
+        <div className="card-header">
+          <h3>Win Probability</h3>
+          <span className="mono-label" style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)' }}>
+            N={data.length}
+          </span>
         </div>
-      ) : (
-        <div style={{ height: '380px' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} layout="vertical" margin={{ left: 10, right: 16 }}>
-              <XAxis type="number" hide />
-              <YAxis
-                dataKey="team" type="category"
-                tick={{ fill: 'var(--color-text-muted)', fontSize: 11, fontWeight: 600 }}
-                axisLine={false} tickLine={false} width={48}
-              />
-              <Tooltip
-                cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                contentStyle={{
-                  background: 'var(--color-surface)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: '0.8125rem',
-                }}
-                formatter={(value: number) => [`${value}%`, 'Probability']}
-              />
-              <Bar dataKey="prob" radius={[0, 3, 3, 0]} barSize={18}>
-                {data.map((entry, i) => (
-                  <Cell key={`cell-${i}`} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="skeleton" style={{ height: '22px', width: '100%' }} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ height: '380px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} layout="vertical" margin={{ left: 4, right: 16, top: 4, bottom: 4 }}>
+                <XAxis type="number" hide />
+                <YAxis
+                  dataKey="team" type="category"
+                  tick={{
+                    fill: 'var(--color-text-secondary)',
+                    fontSize: 10,
+                    fontFamily: 'Space Grotesk',
+                    letterSpacing: '0.05em',
+                  }}
+                  axisLine={false} tickLine={false} width={52}
+                />
+                <Tooltip
+                  cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                  contentStyle={{
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 0,
+                    fontSize: '0.75rem',
+                    fontFamily: 'Space Grotesk',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}
+                  formatter={(value: number) => [`${value}%`, 'PROB']}
+                />
+                <Bar dataKey="prob" radius={0} barSize={14}>
+                  {data.map((entry, i) => (
+                    <Cell key={`cell-${i}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

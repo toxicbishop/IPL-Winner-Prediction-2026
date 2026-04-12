@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, BarChart3, Brain, LineChart, Settings, Sun, Moon } from 'lucide-react';
+import { Cpu, BarChart3, Brain, LineChart, Settings, Sun, Moon, Trophy } from 'lucide-react';
 import { TOURNAMENTS } from '../constants/teams';
 
 interface SidebarProps {
@@ -24,8 +24,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand">
-        <Cpu size={24} />
+      <div className="sidebar-brand" title="IPL 2026 AI">
+        <Cpu size={20} strokeWidth={1.5} />
       </div>
 
       <nav className="sidebar-nav">
@@ -36,7 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onTabChange(item.id)}
             title={item.label}
           >
-            <item.icon size={20} />
+            <item.icon size={18} strokeWidth={1.5} />
           </button>
         ))}
       </nav>
@@ -47,27 +47,20 @@ const Sidebar: React.FC<SidebarProps> = ({
             className="form-select"
             value={tournament}
             onChange={(e) => onTournamentChange(e.target.value)}
-            style={{
-              position: 'absolute',
-              opacity: 0,
-              width: '44px',
-              height: '44px',
-              cursor: 'pointer',
-            }}
           >
             {TOURNAMENTS.map(t => (
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
-          <Cpu size={16} style={{ color: 'var(--color-text-muted)' }} />
+          <Trophy size={16} strokeWidth={1.5} />
         </div>
 
         <button onClick={onThemeToggle} title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}>
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          {theme === 'dark' ? <Sun size={16} strokeWidth={1.5} /> : <Moon size={16} strokeWidth={1.5} />}
         </button>
 
         <button onClick={onSettingsOpen} title="Settings">
-          <Settings size={18} />
+          <Settings size={16} strokeWidth={1.5} />
         </button>
       </div>
     </aside>

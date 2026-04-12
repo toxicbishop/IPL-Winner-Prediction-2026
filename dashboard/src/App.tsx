@@ -40,7 +40,10 @@ const App: React.FC = () => {
 
       <main className="main-content">
         <div className="main-content-header">
-          <h1>{tournamentLabel} — AI Platform</h1>
+          <div className="header-meta">
+            <span className="eyebrow">KINETIC MONOLITH v1.0 · AI PLATFORM</span>
+            <h1>{tournamentLabel}</h1>
+          </div>
           <select
             className="form-select"
             value={tournament}

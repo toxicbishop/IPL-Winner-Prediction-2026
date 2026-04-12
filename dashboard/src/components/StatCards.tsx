@@ -9,37 +9,42 @@ interface StatCardsProps {
 }
 
 const StatCards: React.FC<StatCardsProps> = ({ modelStats, shapFeatures, loading }) => {
-  const ensembleAcc = modelStats.find(m => m.name === 'ENSEMBLE')?.acc || '--';
+  const ensembleAccRaw = modelStats.find(m => m.name === 'ENSEMBLE')?.acc || '0';
+  const ensembleAcc = parseFloat(ensembleAccRaw) || 0;
   const topFeature = shapFeatures.length > 0 ? shapFeatures[0].name : '--';
 
   const cards = [
     {
+      id: 'ACC_087',
       icon: Zap,
       value: loading ? '...' : `${ensembleAcc}%`,
       label: 'Ensemble Accuracy',
-      bgColor: 'var(--color-warning-muted)',
-      iconColor: 'var(--color-warning)',
+      accent: 'var(--color-primary)',
+      progress: ensembleAcc,
     },
     {
+      id: 'MDL_014',
       icon: Layers,
       value: loading ? '...' : `${modelStats.length}`,
       label: 'Models Polled',
-      bgColor: 'var(--color-primary-muted)',
-      iconColor: 'var(--color-primary)',
+      accent: 'var(--color-secondary)',
+      progress: Math.min(100, modelStats.length * 10),
     },
     {
+      id: 'DAT_1169',
       icon: Database,
       value: '1,169',
       label: 'Matches Analyzed',
-      bgColor: 'var(--color-success-muted)',
-      iconColor: 'var(--color-success)',
+      accent: 'var(--color-primary)',
+      progress: 100,
     },
     {
+      id: 'FEAT_01',
       icon: TrendingUp,
       value: loading ? '...' : topFeature,
       label: 'Top Feature',
-      bgColor: 'var(--color-primary-muted)',
-      iconColor: 'var(--color-primary)',
+      accent: 'var(--color-tertiary)',
+      progress: 70,
     },
   ];
 
@@ -47,18 +52,26 @@ const StatCards: React.FC<StatCardsProps> = ({ modelStats, shapFeatures, loading
     <div className="stat-cards-row">
       {cards.map(card => (
         <div key={card.label} className="stat-card">
-          <div
-            className="stat-card-icon"
-            style={{ background: card.bgColor, color: card.iconColor }}
-          >
-            <card.icon size={16} />
+          <div className="card-terminal-bar">
+            <span className="terminal-id">METRIC_ID: {card.id}</span>
+            <card.icon size={10} strokeWidth={1.5} style={{ color: 'var(--color-text-muted)' }} />
           </div>
-          {loading ? (
-            <div className="skeleton" style={{ width: '80px', height: '28px', marginBottom: 'var(--space-xs)' }} />
-          ) : (
-            <div className="stat-card-value">{card.value}</div>
-          )}
-          <div className="stat-card-label">{card.label}</div>
+          <div className="stat-card-body">
+            <div className="stat-card-label">{card.label}</div>
+            {loading ? (
+              <div className="skeleton" style={{ width: '80px', height: '28px' }} />
+            ) : (
+              <div className="stat-card-value" style={{ color: card.accent }}>
+                {card.value}
+              </div>
+            )}
+            <div className="stat-card-accent-bar">
+              <span style={{
+                width: `${card.progress}%`,
+                background: card.accent,
+              }} />
+            </div>
+          </div>
         </div>
       ))}
     </div>

@@ -21,7 +21,6 @@ const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ isOpen, onClose }) => {
     setRebuilding(true);
     try {
       await fetch('http://localhost:8000/api/trigger-pipeline', { method: 'POST' });
-      // Show a simple indication
       setTimeout(() => setRebuilding(false), 3000);
     } catch (err) {
       console.error(err);
@@ -45,25 +44,32 @@ const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ isOpen, onClose }) => {
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
+            transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
           >
             <div className="drawer-header">
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: '1.125rem' }}>
-                <Sliders size={18} /> Platform Settings
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                <Sliders size={16} strokeWidth={1.5} /> Platform Settings
               </h2>
               <button
                 onClick={onClose}
                 style={{
-                  background: 'none', border: 'none',
-                  color: 'var(--color-text-muted)', cursor: 'pointer',
+                  background: 'none',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-muted)',
+                  cursor: 'pointer',
+                  width: 28,
+                  height: 28,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                <X size={20} />
+                <X size={14} strokeWidth={1.5} />
               </button>
             </div>
 
             {/* Bayesian Weights */}
-            <div className="drawer-section card">
+            <div className="drawer-section">
               <h3>Bayesian Priors Weights</h3>
               <p>Adjust the influence of each domain on the final output signal.</p>
 
@@ -71,23 +77,26 @@ const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ isOpen, onClose }) => {
                 <div key={label} style={{ marginBottom: 'var(--space-md)' }}>
                   <div style={{
                     display: 'flex', justifyContent: 'space-between',
-                    fontSize: '0.75rem', marginBottom: 'var(--space-xs)',
+                    fontSize: '0.6875rem', marginBottom: 'var(--space-xs)',
+                    fontFamily: 'var(--font-mono)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
                     color: 'var(--color-text-muted)',
                   }}>
                     <span>{label}</span>
-                    <span style={{ fontFamily: 'var(--font-mono)' }}>0.25</span>
+                    <span style={{ color: 'var(--color-primary)' }}>0.25</span>
                   </div>
                   <input type="range" min="0" max="100" defaultValue="25" disabled />
                 </div>
               ))}
 
-              <button className="btn-ghost" style={{ width: '100%' }} disabled>
+              <button className="btn-ghost" style={{ width: '100%', marginTop: 'var(--space-md)' }} disabled>
                 Recalculate Bounds
               </button>
             </div>
 
             {/* Pipeline Controller */}
-            <div className="drawer-section card">
+            <div className="drawer-section">
               <h3>Pipeline Controller</h3>
               <p>Trigger a hard rebuild of the entire ensemble cluster.</p>
 
@@ -99,12 +108,12 @@ const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ isOpen, onClose }) => {
               >
                 {rebuilding ? (
                   <>
-                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                    <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
                     Rebuilding...
                   </>
                 ) : (
                   <>
-                    <RefreshCw size={16} />
+                    <RefreshCw size={14} strokeWidth={1.75} />
                     Force Pipeline Rebuild
                   </>
                 )}
