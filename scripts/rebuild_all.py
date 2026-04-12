@@ -46,7 +46,7 @@ def rebuild(tournament: str):
     # 8. Explainability (SHAP values)
     run_explainability(model_name="lightgbm", tournament=tournament)
     
-    print(f"\n✅ SUCCESSFULLY REBUILT {tournament.upper()}")
+    print(f"\n[OK] SUCCESSFULLY REBUILT {tournament.upper()}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
