@@ -2,7 +2,6 @@
 Visualization module: plots for model performance and 2026 predictions.
 """
 import os
-import sys
 import json
 import numpy as np
 import pandas as pd
@@ -10,7 +9,6 @@ import matplotlib
 matplotlib.use("Agg")  # headless
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import get_tournament_paths
 
 PALETTE = {

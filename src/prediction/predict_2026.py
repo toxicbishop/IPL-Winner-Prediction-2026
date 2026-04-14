@@ -15,13 +15,11 @@ Strategy:
 Data: trained on real IPL.csv (2008-2025, 1100+ matches).
 """
 import os
-import sys
 import json
 import itertools
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import (
     get_tournament_paths, TOURNAMENTS, TEAMS,
     FEATURES_CSV, PROCESSED_MATCHES_CSV,
@@ -37,47 +35,30 @@ from src.features.venue_features import (
 )
 from src.features.team_strength import get_team_strength_features
 
-# 2026 Squad Strength (0-10 scale) based on 2025 performance + auction
-SQUAD_STRENGTH_2026 = {
-    "RCB":  9.2,  # 2025 champions, Kohli peak, strong squad
-    "MI":   9.0,  # Bumrah, Rohit, Hardik; deep batting
-    "KKR":  8.8,  # 2024 champions; Narine, Russell, Starc
-    "SRH":  8.5,  # Travis Head, Cummins, explosive batting
-    "CSK":  8.3,  # Ruturaj leads, Jadeja, experienced squad
-    "RR":   8.2,  # Buttler, Samson, consistent playoff side
-    "GT":   8.0,  # Shubman Gill, strong squad
-    "LSG":  7.8,  # KL Rahul, Pooran; improving every season
-    "DC":   7.5,  # Jake Fraser-McGurk, Axar; young side
-    "PBKS": 7.3,  # Arshdeep, improving but inconsistent
-}
+_PRIORS_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "..", "data", "priors_2026.json"
+)
 
-# Actual Playoff Appearances 2023-2025 (from real data, updated after DB ingestion)
-PLAYOFF_RATE_3YR = {
-    "RCB":  2/3,  # 2024, 2025
-    "GT":   1/3,  # 2023
-    "RR":   2/3,  # 2024, 2025 (estimate based on strong 2025)
-    "LSG":  1/3,  # 2023
-    "CSK":  2/3,  # 2023, 2025
-    "MI":   1/3,  # 2023
-    "KKR":  2/3,  # 2024, 2025
-    "SRH":  1/3,  # 2024
-    "DC":   1/3,  # 2025
-    "PBKS": 0/3,
-}
 
-# 2025 Season Rank Score (most recent season)
-SEASON_2025_RANK_SCORE = {
-    "RCB":  10,  # Champion
-    "CSK":  9,
-    "KKR":  8,
-    "RR":   7,
-    "DC":   6,
-    "SRH":  5,
-    "GT":   5,
-    "MI":   4,
-    "LSG":  4,
-    "PBKS": 3,
-}
+def _load_priors_2026() -> dict:
+    """Load the 2026 IPL priors (squad strength, playoff rate, season rank) from JSON.
+
+    Keeping these in data/priors_2026.json instead of hardcoded constants allows
+    updates without code changes and gives us an audit trail in git.
+    """
+    with open(_PRIORS_PATH) as f:
+        priors = json.load(f)
+    required = {"squad_strength_2026", "playoff_rate_3yr", "season_2025_rank_score"}
+    missing = required - set(priors.keys())
+    if missing:
+        raise ValueError(f"priors_2026.json missing required keys: {missing}")
+    return priors
+
+
+_PRIORS = _load_priors_2026()
+SQUAD_STRENGTH_2026 = _PRIORS["squad_strength_2026"]
+PLAYOFF_RATE_3YR = _PRIORS["playoff_rate_3yr"]
+SEASON_2025_RANK_SCORE = _PRIORS["season_2025_rank_score"]
 
 # Venues to average over (tournament-specific defaults can be added)
 PREDICTION_VENUES_IPL = [

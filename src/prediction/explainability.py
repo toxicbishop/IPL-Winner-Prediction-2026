@@ -3,7 +3,6 @@ SHAP Explainability Module: generates local and global explanations for base mod
 Identifies which team characteristics (features) drive the winner prediction.
 """
 import os
-import sys
 import json
 import logging
 import pandas as pd
@@ -12,7 +11,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import get_tournament_paths
 from src.models.base_model import FEATURE_COLS, TARGET_COL
 

@@ -8,13 +8,11 @@ Simulates 100,000 tournament iterations:
   4. Champion frequency across all iterations = championship probability.
 """
 import os
-import sys
 import json
 import numpy as np
 import pandas as pd
 from collections import defaultdict
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import ACTIVE_TEAMS_2026, RESULTS_DIR
 
 N_ITERATIONS = 100_000

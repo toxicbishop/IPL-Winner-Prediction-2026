@@ -6,11 +6,9 @@ Usage:
   from src.prediction.match_predictor import predict_match
   result = predict_match("MI", "CSK")
 """
-import os
 import sys
 import pandas as pd
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import PROCESSED_MATCHES_CSV, FEATURES_CSV
 from src.models.base_model import FEATURE_COLS
 from src.prediction.predict_2026 import build_matchup_features
