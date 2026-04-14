@@ -5,7 +5,6 @@ Uses walk-forward cross-validation as the objective to avoid data leakage.
 Saves best params to outputs/results/best_params.json.
 """
 import os
-import sys
 import json
 import warnings
 warnings.filterwarnings("ignore")
@@ -13,7 +12,6 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import FEATURES_CSV, RESULTS_DIR, RANDOM_STATE
 from src.models.base_model import FEATURE_COLS, TARGET_COL
 from src.models.cross_validator import walk_forward_split

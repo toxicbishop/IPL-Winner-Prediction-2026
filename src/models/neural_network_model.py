@@ -2,10 +2,8 @@
 Neural Network (MLP) model for IPL match winner prediction.
 Uses sklearn's MLPClassifier with StandardScaler preprocessing.
 """
-import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import MODEL_PARAMS, MODELS_DIR
 from src.models.base_model import BaseIPLModel, FEATURE_COLS, TARGET_COL
 

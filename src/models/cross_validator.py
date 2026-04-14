@@ -13,13 +13,10 @@ Folds:
   Fold 10: Train 2008-2022, Val 2023
   Hold-out test: 2024 (never used in CV)
 """
-import os
-import sys
 import numpy as np
 import pandas as pd
 from collections import defaultdict
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import FEATURES_CSV, FIRST_SEASON
 from src.models.base_model import FEATURE_COLS, TARGET_COL
 

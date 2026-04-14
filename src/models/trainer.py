@@ -3,12 +3,10 @@ Model training orchestrator.
 Trains all individual models + ensemble, saves metrics to JSON.
 """
 import os
-import sys
 import json
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import TOURNAMENTS, get_tournament_paths, RANDOM_STATE, TEST_SIZE
 from src.models.random_forest_model  import RandomForestModel
 from src.models.xgboost_model        import XGBoostModel

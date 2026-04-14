@@ -3,7 +3,7 @@ Base model class for all IPL prediction models.
 Provides common interface: train, predict, evaluate, save, load.
 """
 import os
-import sys
+import logging
 import joblib
 import numpy as np
 import pandas as pd
@@ -13,7 +13,8 @@ from sklearn.metrics import (
     accuracy_score, roc_auc_score, classification_report, confusion_matrix,
 )
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+logger = logging.getLogger(__name__)
+
 from config import MODELS_DIR, RANDOM_STATE, CV_FOLDS
 
 FEATURE_COLS = [
@@ -63,8 +64,21 @@ class BaseIPLModel(ABC):
         """Instantiate self.model with configured hyperparameters."""
 
     def get_X_y(self, df: pd.DataFrame):
+        missing = [c for c in FEATURE_COLS if c not in df.columns]
+        if missing:
+            raise ValueError(f"Feature matrix missing columns: {missing}")
+        if TARGET_COL not in df.columns:
+            raise ValueError(f"Target column '{TARGET_COL}' missing from features dataframe.")
         X = df[FEATURE_COLS].copy()
         y = df[TARGET_COL].copy()
+        nan_cols = X.columns[X.isna().any()].tolist()
+        if nan_cols:
+            raise ValueError(
+                f"NaN values found in feature columns: {nan_cols}. "
+                "Fix feature engineering before training."
+            )
+        if y.isna().any():
+            raise ValueError(f"NaN values found in target column '{TARGET_COL}'.")
         return X, y
 
     def train(self, df: pd.DataFrame) -> dict:
@@ -95,8 +109,9 @@ class BaseIPLModel(ABC):
         if probs is not None:
             try:
                 metrics["roc_auc"] = round(roc_auc_score(y, probs), 4)
-            except Exception:
-                pass
+            except ValueError as e:
+                # roc_auc_score raises ValueError when only one class is present
+                logger.warning("ROC AUC could not be computed for %s: %s", self.name, e)
         return metrics
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:

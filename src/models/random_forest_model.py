@@ -1,10 +1,7 @@
 """
 Random Forest model for IPL match winner prediction.
 """
-import sys
-import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import MODEL_PARAMS
 from src.models.base_model import BaseIPLModel
 from sklearn.ensemble import RandomForestClassifier

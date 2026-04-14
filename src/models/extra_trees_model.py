@@ -6,10 +6,7 @@ ExtraTreesClassifier differs from RandomForest:
   - Lower variance than RF, often better on small datasets
   - Different error patterns than RF/XGBoost → improves ensemble diversity
 """
-import sys
-import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from src.models.base_model import BaseIPLModel
 from sklearn.ensemble import ExtraTreesClassifier
 from config import RANDOM_STATE

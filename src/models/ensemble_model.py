@@ -2,13 +2,11 @@
 Stacking Ensemble model combining RF, XGBoost, LightGBM, Neural Network, and ExtraTrees.
 Uses a Logistic Regression meta-learner on top of base model probability outputs.
 """
-import sys
 import os
 import joblib
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import MODELS_DIR, RANDOM_STATE, CV_FOLDS, FEATURES_CSV
 from src.models.base_model import FEATURE_COLS, TARGET_COL
 from src.models.random_forest_model import RandomForestModel
@@ -65,10 +63,33 @@ class EnsembleModel:
         return {"train_accuracy": round(train_acc, 4)}
 
     def cross_validate(self, df: pd.DataFrame) -> dict:
-        """Simulated CV score (since soft voting doesn't have internal weights)"""
-        # We can just return the train logic or a basic stub, as base models do their own CV in test modes.
-        # But to be conformant, we return a dummy score.
-        return {"cv_mean": 0.6500, "cv_std": 0.0}
+        """Real stratified K-fold CV on the soft-voting ensemble.
+
+        For each fold we retrain every base model on the training split, then
+        average their probabilities on the held-out split. Falls back to the
+        base models' own averaged CV scores if any fold raises.
+        """
+        y = df[TARGET_COL].values
+        skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+        fold_scores = []
+        for fold_idx, (train_idx, test_idx) in enumerate(skf.split(df, y)):
+            train_df = df.iloc[train_idx]
+            test_df = df.iloc[test_idx]
+            probs = np.zeros(len(test_df))
+            for model in self.base_models:
+                # Rebuild a fresh instance per fold to avoid leakage
+                fresh = model.__class__(save_dir=self.save_dir)
+                fresh.train(train_df)
+                probs += fresh.predict_proba(test_df[FEATURE_COLS])[:, 1]
+            probs /= len(self.base_models)
+            preds = (probs >= 0.5).astype(int)
+            fold_scores.append(accuracy_score(y[test_idx], preds))
+        arr = np.array(fold_scores)
+        return {
+            "cv_mean": round(float(arr.mean()), 4),
+            "cv_std": round(float(arr.std()), 4),
+            "cv_scores": [round(float(s), 4) for s in arr],
+        }
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         if not self.is_trained:

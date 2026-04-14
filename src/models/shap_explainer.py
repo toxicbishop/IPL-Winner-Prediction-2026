@@ -3,14 +3,12 @@ SHAP-based feature importance and model explainability.
 Generates summary plots for tree-based models and the ensemble.
 """
 import os
-import sys
 import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import FEATURES_CSV, RESULTS_DIR
 from src.models.base_model import FEATURE_COLS, TARGET_COL
 
