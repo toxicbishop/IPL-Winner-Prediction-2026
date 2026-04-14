@@ -7,14 +7,12 @@ Produces:
   - data/raw/player_stats.csv
 """
 import os
-import sys
 import re
 import json
 import pandas as pd
 import numpy as np
 import glob
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 # Default seasonal mapping (extends as needed)
 SEASON_TO_YEAR = {
     "2007/08": 2008, "2008": 2008, "2009": 2009, "2009/10": 2010, "2010": 2010,

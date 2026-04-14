@@ -3,10 +3,8 @@ Data preprocessing: reads raw matches CSV and outputs a clean
 processed DataFrame saved as CSV for feature engineering.
 """
 import os
-import sys
 import pandas as pd
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import (
     get_tournament_paths, TOURNAMENTS,
     ACTIVE_TEAMS_2026, RETIRED_TEAM_MAP,

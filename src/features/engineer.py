@@ -13,12 +13,10 @@ Features generated per match row (team1 vs team2):
  - Team batting/bowling strength (from real player stats)
 """
 import os
-import sys
 import sqlite3
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import (
     get_tournament_paths, TOURNAMENTS,
     FORM_WINDOW, H2H_WINDOW_SEASONS, DB_DIR

@@ -5,14 +5,12 @@ Populates: teams, venues, matches, season_stats, head_to_head, player_stats.
 All data comes from the real IPL.csv dataset (extracted by create_dataset.py).
 """
 import os
-import sys
 import csv
 import json
 import sqlite3
 import pandas as pd
 from collections import defaultdict
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import (
     get_tournament_paths, TOURNAMENTS,
     TEAM_ALIASES, ACTIVE_TEAMS_2026,

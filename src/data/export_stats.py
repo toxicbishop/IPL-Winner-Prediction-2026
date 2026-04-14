@@ -3,12 +3,10 @@ Exports aggregated team statistics from SQLite to CSV for external analysis.
 Produces: team_stats.csv, head_to_head_matrix.csv
 """
 import os
-import sys
 import sqlite3
 import pandas as pd
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import SQLITE_DB_PATH, PROCESSED_DIR, TEAM_STATS_CSV, ACTIVE_TEAMS_2026
 
 

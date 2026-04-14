@@ -9,8 +9,6 @@ For each team × season, computes:
 These are causal features: a team with high batting avg will tend to win.
 Unlike win-rate features (which are outcomes), these capture WHY a team is strong.
 """
-import os
-import sys
 import sqlite3
 import pandas as pd
 import numpy as np

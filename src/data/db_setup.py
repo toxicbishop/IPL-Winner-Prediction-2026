@@ -3,10 +3,8 @@ SQLite database schema creation for IPL prediction.
 Creates tables: teams, matches, venues, season_stats, head_to_head.
 """
 import os
-import sys
 import sqlite3
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import get_tournament_paths, TOURNAMENTS, DB_DIR
 
 CREATE_TABLES_SQL = """

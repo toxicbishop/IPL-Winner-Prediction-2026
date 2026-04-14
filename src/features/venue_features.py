@@ -5,11 +5,9 @@ Venue-level features computed from real IPL data:
   - Boundary size encoding (small=batting friendly, large=bowling friendly)
 """
 import os
-import sys
 import pandas as pd
 from functools import lru_cache
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import BASE_DIR
 
 IPL_CSV = os.path.join(BASE_DIR, "IPL.csv")
