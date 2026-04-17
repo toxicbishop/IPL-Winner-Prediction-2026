@@ -32,6 +32,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+os.makedirs("outputs", exist_ok=True)
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 
 RESULTS_PATH = "outputs/results/"
