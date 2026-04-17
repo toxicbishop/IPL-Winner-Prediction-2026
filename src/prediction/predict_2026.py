@@ -189,12 +189,16 @@ def simulate_tournament(model, df: pd.DataFrame, tournament: str = "ipl"):
 def bayesian_update(model_probs: dict, tournament: str = "ipl") -> dict:
     """
     Combine model probabilities with CURRENT-STRENGTH domain priors.
+
+    Includes an in-season form signal (2026 win rates for completed matches)
+    whose weight ramps with matches played; pre-tournament it contributes 0 and
+    the other four priors stay at their original weights.
     """
     if tournament != "ipl":
         return model_probs # simplified for ICC for now
-    
+
     teams = list(model_probs.keys())
-    
+
     def normalize(d):
         total = sum(d.values())
         return {k: v / total for k, v in d.items()} if total > 0 else d
@@ -212,12 +216,15 @@ def bayesian_update(model_probs: dict, tournament: str = "ipl") -> dict:
 
     model_norm = normalize(model_probs)
 
-    weights = {
-        "squad":        0.35,
-        "recent_form":  0.30,
-        "model":        0.30,
-        "playoff":      0.05,
-    }
+    from src.features.in_season_form import compute_in_season_form, in_season_weight
+    in_season_rates, n_played = compute_in_season_form(tournament, season=2026)
+    in_season_prior = normalize({t: max(in_season_rates.get(t, 0.5), 0.01) for t in teams})
+    in_season_w = in_season_weight(n_played)
+
+    base = {"squad": 0.35, "recent_form": 0.30, "model": 0.30, "playoff": 0.05}
+    scale = 1.0 - in_season_w
+    weights = {k: v * scale for k, v in base.items()}
+    weights["in_season"] = in_season_w
 
     combined = {}
     for t in teams:
@@ -225,9 +232,13 @@ def bayesian_update(model_probs: dict, tournament: str = "ipl") -> dict:
             weights["squad"]       * sq_prior.get(t, 0) +
             weights["recent_form"] * recent_prior.get(t, 0) +
             weights["model"]       * model_norm.get(t, 0) +
-            weights["playoff"]     * pl_prior.get(t, 0)
+            weights["playoff"]     * pl_prior.get(t, 0) +
+            weights["in_season"]   * in_season_prior.get(t, 0)
         )
 
+    print(
+        f"In-season signal: {n_played} matches played, weight={in_season_w:.2f}"
+    )
     return normalize(combined)
 
 
