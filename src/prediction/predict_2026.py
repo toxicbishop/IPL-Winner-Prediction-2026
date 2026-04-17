@@ -114,8 +114,8 @@ def build_matchup_features(team1: str, team2: str, df: pd.DataFrame, tournament:
                 v_toss_impact = get_venue_toss_impact(venue)
                 v_size = get_venue_size(venue)
 
-                t1_str = get_team_strength_features(team1, 2025)
-                t2_str = get_team_strength_features(team2, 2025)
+                t1_str = get_team_strength_features(team1, 2026)
+                t2_str = get_team_strength_features(team2, 2026)
 
                 f = {
                     "toss_won_by_team1": toss_t1,
