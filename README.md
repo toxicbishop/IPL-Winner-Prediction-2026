@@ -7,9 +7,9 @@ The project supports two prediction modes:
 - Tournament winner probabilities (all 10 teams)
 - Match-by-match fixture predictions for the full 2026 schedule
 
-## Latest Prediction Snapshot
+## IPL 2026 Prediction Snapshot
 
-### Tournament Winner Ranking (2026)
+### IPL 2026 Winner Ranking
 
 | Rank | Team                        | Win Probability |
 | ---- | --------------------------- | --------------- |
