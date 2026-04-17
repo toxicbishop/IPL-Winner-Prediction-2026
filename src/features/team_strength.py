@@ -114,7 +114,22 @@ def get_team_allrounder_strength(team: str, season: int) -> float:
 
 
 def get_team_strength_features(team: str, season: int) -> dict:
-    """Returns all team strength features for a given team and season."""
+    """Returns all team strength features for a given team and season.
+
+    For IPL predictions at season >= 2026, derive the features bottom-up from
+    the projected 2026 roster and per-player career form (player_form).
+    For historical seasons and non-IPL tournaments, keep the legacy
+    player_stats aggregation so training features stay unchanged.
+    """
+    if season >= 2026:
+        try:
+            from src.features.player_form import team_strength_from_roster
+            feats = team_strength_from_roster(team, season)
+            feats.setdefault("bat_bowl_balance", abs(feats["batting_strength"] - feats["bowling_strength"]))
+            return feats
+        except Exception:
+            pass  # fall back to legacy path on any load/parse issue
+
     bat = get_team_batting_strength(team, season)
     bowl = get_team_bowling_strength(team, season)
     allround = get_team_allrounder_strength(team, season)
