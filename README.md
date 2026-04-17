@@ -7,39 +7,40 @@ The project supports two prediction modes:
 - Tournament winner probabilities (all 10 teams)
 - Match-by-match fixture predictions for the full 2026 schedule
 
-## Latest Prediction Snapshot
+## IPL 2026 Prediction Snapshot
 
-### Tournament Winner Ranking (2026)
+### IPL 2026 Winner Ranking
 
 | Rank | Team                        | Win Probability |
 | ---- | --------------------------- | --------------- |
-| 1    | Royal Challengers Bengaluru | 11.43%          |
-| 2    | Kolkata Knight Riders       | 10.68%          |
-| 3    | Rajasthan Royals            | 10.66%          |
-| 4    | Chennai Super Kings         | 10.49%          |
-| 5    | Delhi Capitals              | 10.41%          |
-| 6    | Mumbai Indians              | 9.73%           |
-| 7    | Lucknow Super Giants        | 9.59%           |
-| 8    | Sunrisers Hyderabad         | 9.54%           |
-| 9    | Gujarat Titans              | 9.50%           |
-| 10   | Punjab Kings                | 7.97%           |
+| 1    | Mumbai Indians              | 12.61%          |
+| 2    | Gujarat Titans              | 12.24%          |
+| 3    | Royal Challengers Bengaluru | 12.20%          |
+| 4    | Punjab Kings                | 10.58%          |
+| 5    | Sunrisers Hyderabad         | 9.78%           |
+| 6    | Lucknow Super Giants        | 9.58%           |
+| 7    | Kolkata Knight Riders       | 8.67%           |
+| 8    | Rajasthan Royals            | 8.51%           |
+| 9    | Chennai Super Kings         | 8.29%           |
+| 10   | Delhi Capitals              | 7.55%           |
 
-Source: `outputs/results/prediction_2026.json`
+Probabilities now incorporate bottom-up team strength aggregated from each projected 2026 XI's per-player career form. See `data/rosters_2026.json` and `src/features/player_form.py`.
+
+Source: `outputs/results/ipl/prediction_2026.json`
 
 ### Fixture-level Summary (2026 Schedule)
 
-Predicted league-stage wins from `outputs/results/ipl_2026_match_predictions.csv`:
+Predicted league-stage wins from `outputs/results/ipl/ipl_2026_match_predictions.csv`:
 
-- MI: 11
-- DC: 11
-- LSG: 10
 - GT: 9
-- PBKS: 9
-- SRH: 7
-- CSK: 5
-- RCB: 3
+- PBKS: 8
+- MI: 7
+- DC: 6
+- LSG: 5
+- SRH: 4
 - RR: 3
-- KKR: 2
+- CSK: 2
+- KKR: 1
 
 ## Model Performance
 
@@ -74,6 +75,11 @@ Generated pipeline artifacts:
 2026 fixture input:
 
 - (Generated dynamically) Legacy input at `data/mock/ipl-2026-UTC.csv`
+
+2026 priors and rosters:
+
+- `data/priors_2026.json` — `playoff_rate_3yr` and `season_2025_rank_score` auto-computed from Cricsheet; `squad_strength_2026` is hand-curated.
+- `data/rosters_2026.json` — projected 2026 XI per team (top-15 by 2025 Cricsheet appearances, hand-editable post-auction).
 
 ## Project Structure
 
