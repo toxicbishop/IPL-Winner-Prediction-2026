@@ -39,8 +39,8 @@ const WinProbabilityChart: React.FC<WinProbabilityChartProps> = ({ data, loading
                   tick={{
                     fill: 'var(--color-text-secondary)',
                     fontSize: 10,
-                    fontFamily: 'Space Grotesk',
-                    letterSpacing: '0.05em',
+                    fontFamily: 'var(--font-mono)',
+                    letterSpacing: '0.14em',
                   }}
                   axisLine={false} tickLine={false} width={52}
                 />
@@ -48,12 +48,13 @@ const WinProbabilityChart: React.FC<WinProbabilityChartProps> = ({ data, loading
                   cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                   contentStyle={{
                     background: 'var(--color-surface)',
-                    border: '1px solid var(--color-border)',
+                    border: '1px solid var(--color-primary)',
                     borderRadius: 0,
                     fontSize: '0.75rem',
-                    fontFamily: 'Space Grotesk',
+                    fontFamily: 'var(--font-mono)',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
+                    letterSpacing: '0.14em',
+                    color: 'var(--color-text-main)',
                   }}
                   formatter={(value: number) => [`${value}%`, 'PROB']}
                 />

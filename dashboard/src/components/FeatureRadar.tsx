@@ -36,8 +36,8 @@ const FeatureRadar: React.FC<FeatureRadarProps> = ({ data, loading }) => {
                   tick={{
                     fill: 'var(--color-text-secondary)',
                     fontSize: 9,
-                    fontFamily: 'Space Grotesk',
-                    letterSpacing: '0.05em',
+                    fontFamily: 'var(--font-mono)',
+                    letterSpacing: '0.14em',
                   }}
                 />
                 <Radar

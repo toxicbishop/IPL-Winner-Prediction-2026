@@ -11,13 +11,13 @@ const HeroChampion: React.FC<HeroChampionProps> = ({ topTeam, loading }) => {
   if (loading) {
     return (
       <div className="hero-champion">
-        <div className="skeleton" style={{ width: '96px', height: '96px' }} />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-          <div className="skeleton" style={{ width: '180px', height: '14px' }} />
-          <div className="skeleton" style={{ width: '320px', height: '32px' }} />
-          <div className="skeleton" style={{ width: '420px', height: '14px' }} />
+        <div className="skeleton h-24 w-24" />
+        <div className="flex flex-1 flex-col gap-2">
+          <div className="skeleton h-3.5 w-44" />
+          <div className="skeleton h-8 w-80" />
+          <div className="skeleton h-3.5 w-[420px] max-w-full" />
         </div>
-        <div className="skeleton" style={{ width: '140px', height: '56px' }} />
+        <div className="skeleton h-14 w-36" />
       </div>
     );
   }
@@ -35,7 +35,7 @@ const HeroChampion: React.FC<HeroChampionProps> = ({ topTeam, loading }) => {
 
       <div className="hero-champion-info">
         <span className="eyebrow">
-          <Star size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />
+          <Star size={10} className="mr-1 inline -translate-y-px" />
           Predicted Champion
         </span>
         <h2>{topTeam.team}</h2>
@@ -44,10 +44,10 @@ const HeroChampion: React.FC<HeroChampionProps> = ({ topTeam, loading }) => {
         </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+      <div className="flex flex-col items-end">
         <div className="hero-prob-badge">
           {topTeam.prob}
-          <span style={{ fontSize: '1.25rem', color: 'var(--color-text-muted)' }}>%</span>
+          <span className="ml-1 font-mono text-xl tracking-mono text-paper-muted">%</span>
         </div>
         <div className="hero-prob-badge-label">Ensemble Win Probability</div>
       </div>
