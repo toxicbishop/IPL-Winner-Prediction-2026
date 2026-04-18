@@ -13,47 +13,91 @@ The project supports two prediction modes:
 
 | Rank | Team                        | Win Probability |
 | ---- | --------------------------- | --------------- |
-| 1    | Mumbai Indians              | 12.61%          |
-| 2    | Gujarat Titans              | 12.24%          |
-| 3    | Royal Challengers Bengaluru | 12.20%          |
-| 4    | Punjab Kings                | 10.58%          |
-| 5    | Sunrisers Hyderabad         | 9.78%           |
-| 6    | Lucknow Super Giants        | 9.58%           |
-| 7    | Kolkata Knight Riders       | 8.67%           |
-| 8    | Rajasthan Royals            | 8.51%           |
-| 9    | Chennai Super Kings         | 8.29%           |
-| 10   | Delhi Capitals              | 7.55%           |
+| 1    | Royal Challengers Bengaluru | 13.48%          |
+| 2    | Punjab Kings                | 12.56%          |
+| 3    | Gujarat Titans              | 11.77%          |
+| 4    | Mumbai Indians              | 10.64%          |
+| 5    | Rajasthan Royals            | 10.05%          |
+| 6    | Sunrisers Hyderabad         | 9.45%           |
+| 7    | Lucknow Super Giants        | 9.04%           |
+| 8    | Chennai Super Kings         | 8.26%           |
+| 9    | Delhi Capitals              | 7.91%           |
+| 10   | Kolkata Knight Riders       | 6.83%           |
 
-Probabilities now incorporate bottom-up team strength aggregated from each projected 2026 XI's per-player career form. See `data/rosters_2026.json` and `src/features/player_form.py`.
+The probability blends four priors — squad strength (roster-aware, aggregated from each projected 2026 XI's per-player career form), 3-year playoff rate, 2025 rank score, and model signal — with an in-season form prior whose weight ramps linearly from 0 to 30% over the first 30 matches of the 2026 season. At the time of this snapshot, 23 matches had been played and the in-season signal carried ~23% weight. RCB's lead comes from strong early-season form (4 wins in 5 games) on top of the 2025 priors.
 
-Source: `outputs/results/ipl/prediction_2026.json`
+Sources: `outputs/results/ipl/prediction_2026.json`, `src/features/player_form.py`, `src/features/in_season_form.py`, `data/rosters_2026.json`.
 
 ### Fixture-level Summary (2026 Schedule)
 
 Predicted league-stage wins from `outputs/results/ipl/ipl_2026_match_predictions.csv`:
 
 - GT: 9
-- PBKS: 8
-- MI: 7
-- DC: 6
-- LSG: 5
-- SRH: 4
-- RR: 3
+- MI: 8
+- PBKS: 7
+- DC: 5
+- SRH: 5
+- RCB: 4
+- LSG: 3
 - CSK: 2
 - KKR: 1
+- RR: 1
 
-## Model Performance
+### Daily In-Season Refresh
+
+After each match day, run:
+
+```bash
+python scripts/update_in_season.py
+```
+
+This pulls the latest Cricsheet archive, rebuilds the ball-by-ball CSV + priors + rosters, retrains all models, and regenerates both the winner ranking and fixture predictions. The in-season form signal is recomputed from the updated `data/processed/ipl/matches.csv`, so predictions stay current through the season.
+
+## ICC Men's T20 World Cup 2026 — Top Contenders
+
+| Rank | Team         | Win Probability |
+| ---- | ------------ | --------------- |
+| 1    | West Indies  | 94.96%          |
+| 2    | England      | 88.20%          |
+| 3    | India        | 83.06%          |
+| 4    | New Zealand  | 79.44%          |
+| 5    | Pakistan     | 78.60%          |
+| 6    | Australia    | 75.84%          |
+| 7    | South Africa | 74.22%          |
+| 8    | Scotland     | 60.65%          |
+
+Full 23-team ranking: `outputs/results/icc_men/prediction_2026.json`.
+
+## ICC Women's T20 World Cup 2026
+
+| Rank | Team         | Win Probability |
+| ---- | ------------ | --------------- |
+| 1    | Australia    | 90.82%          |
+| 2    | England      | 90.10%          |
+| 3    | South Africa | 72.92%          |
+| 4    | India        | 58.22%          |
+| 5    | New Zealand  | 54.33%          |
+| 6    | Sri Lanka    | 39.19%          |
+| 7    | Bangladesh   | 20.13%          |
+| 8    | West Indies  | 19.86%          |
+| 9    | Pakistan     | 4.43%           |
+
+Source: `outputs/results/icc_women/prediction_2026.json`.
+
+**Note on ICC probabilities**: Unlike the IPL numbers, ICC win probabilities are raw classifier outputs for each team's head-to-head matchup strength, not normalized tournament-winner probabilities — they do not sum to 100%. Read them as relative strength signals, not literal tournament-winning odds. Bringing ICC tournaments onto the same Bayesian + in-season pipeline as IPL is tracked as future work.
+
+## Model Performance (IPL)
 
 | Model          | CV Accuracy | Test Accuracy | Test AUC |
 | -------------- | ----------- | ------------- | -------- |
-| Random Forest  | 0.6350      | 0.6711        | 0.6995   |
-| XGBoost        | 0.6311      | 0.6534        | 0.7111   |
-| LightGBM       | 0.6477      | 0.6600        | 0.7138   |
-| Neural Network | 0.6080      | 0.6049        | 0.6141   |
-| ExtraTrees     | 0.6444      | 0.6512        | 0.7083   |
-| Ensemble       | -           | 0.6490        | 0.7054   |
+| Random Forest  | 0.6604      | 0.6450        | 0.7046   |
+| XGBoost        | 0.6566      | 0.6190        | 0.7110   |
+| LightGBM       | 0.6508      | 0.6580        | 0.7084   |
+| Neural Network | 0.6287      | 0.6190        | 0.6504   |
+| ExtraTrees     | 0.6566      | 0.6104        | 0.6833   |
+| Ensemble       | -           | 0.6364        | 0.7007   |
 
-Source: `outputs/results/model_results.json`
+Source: `outputs/results/ipl/model_results.json`
 
 ## Data
 
