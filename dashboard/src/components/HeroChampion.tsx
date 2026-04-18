@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trophy, Star } from 'lucide-react';
-import { TeamData } from '../constants/teams';
+import { TeamData, getTeamLogo } from '../constants/teams';
 
 interface HeroChampionProps {
   topTeam: TeamData | null;
@@ -24,13 +24,27 @@ const HeroChampion: React.FC<HeroChampionProps> = ({ topTeam, loading }) => {
 
   if (!topTeam) return null;
 
+  const logo = getTeamLogo(topTeam.team);
+
   return (
     <div
       className="hero-champion"
       style={{ borderTop: `2px solid ${topTeam.color}` }}
     >
-      <div className="hero-champion-icon" style={{ color: topTeam.color }}>
-        <Trophy size={40} strokeWidth={1.25} />
+      <div
+        className="hero-champion-icon"
+        style={{ color: topTeam.color, borderColor: topTeam.color }}
+      >
+        {logo ? (
+          <img
+            src={logo}
+            alt={`${topTeam.team} logo`}
+            className="max-h-[80%] max-w-[80%] object-contain"
+            loading="eager"
+          />
+        ) : (
+          <Trophy size={40} strokeWidth={1.25} />
+        )}
       </div>
 
       <div className="hero-champion-info">

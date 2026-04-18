@@ -1,3 +1,38 @@
+// Logo filename map — IPL franchises only (real marks live in /public/logos/)
+export const TEAM_LOGOS: Record<string, string> = {
+  CSK:  '/logos/CSK.svg',
+  MI:   '/logos/MI.svg',
+  RCB:  '/logos/RCB.svg',
+  KKR:  '/logos/KKR.svg',
+  DC:   '/logos/DC.svg',
+  PBKS: '/logos/PBKS.svg',
+  RR:   '/logos/RR.svg',
+  SRH:  '/logos/SRH.svg',
+  LSG:  '/logos/LSG.svg',
+  GT:   '/logos/GT.svg',
+};
+
+// Full name → short code, for when the backend returns human names
+const TEAM_NAME_TO_CODE: Record<string, string> = {
+  'Chennai Super Kings': 'CSK',
+  'Mumbai Indians': 'MI',
+  'Royal Challengers Bengaluru': 'RCB',
+  'Royal Challengers Bangalore': 'RCB',
+  'Kolkata Knight Riders': 'KKR',
+  'Delhi Capitals': 'DC',
+  'Punjab Kings': 'PBKS',
+  'Rajasthan Royals': 'RR',
+  'Sunrisers Hyderabad': 'SRH',
+  'Lucknow Super Giants': 'LSG',
+  'Gujarat Titans': 'GT',
+};
+
+export function getTeamLogo(codeOrName: string): string | undefined {
+  if (TEAM_LOGOS[codeOrName]) return TEAM_LOGOS[codeOrName];
+  const code = TEAM_NAME_TO_CODE[codeOrName];
+  return code ? TEAM_LOGOS[code] : undefined;
+}
+
 // Team color map for all tournament types
 export const TEAM_COLORS: Record<string, string> = {
   // IPL Franchises

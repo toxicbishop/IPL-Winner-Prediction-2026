@@ -1,10 +1,28 @@
 import React from 'react';
-import { MatchFixture } from '../constants/teams';
+import { MatchFixture, getTeamLogo } from '../constants/teams';
 
 interface MatchForecastProps {
   schedule: MatchFixture[];
   loading: boolean;
 }
+
+const TeamCell: React.FC<{ name: string }> = ({ name }) => {
+  const logo = getTeamLogo(name);
+  return (
+    <span className="flex items-center gap-2">
+      {logo && (
+        <img
+          src={logo}
+          alt=""
+          aria-hidden="true"
+          className="h-5 w-5 shrink-0 object-contain"
+          loading="lazy"
+        />
+      )}
+      <span className="mono-label text-xs text-paper">{name}</span>
+    </span>
+  );
+};
 
 const MatchForecast: React.FC<MatchForecastProps> = ({ schedule, loading }) => {
   return (
@@ -23,7 +41,7 @@ const MatchForecast: React.FC<MatchForecastProps> = ({ schedule, loading }) => {
         <div className="data-table">
           <div
             className="table-header"
-            style={{ gridTemplateColumns: '1fr 1.5fr 1.5fr 1fr' }}
+            style={{ gridTemplateColumns: '1fr 1.5fr 1.5fr 1.25fr' }}
           >
             <span>Date</span>
             <span>Home</span>
@@ -32,59 +50,45 @@ const MatchForecast: React.FC<MatchForecastProps> = ({ schedule, loading }) => {
           </div>
 
           {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', paddingTop: 'var(--space-md)' }}>
+            <div className="flex flex-col gap-2 pt-4">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="skeleton" style={{ height: '40px' }} />
+                <div key={i} className="skeleton h-10" />
               ))}
             </div>
           ) : (
             <div>
-              {schedule.map((match, i) => (
-                <div
-                  key={i}
-                  className="table-row"
-                  style={{ gridTemplateColumns: '1fr 1.5fr 1.5fr 1fr' }}
-                >
-                  <span
-                    className="mono-label"
-                    style={{ color: 'var(--color-text-muted)', fontSize: '0.6875rem' }}
+              {schedule.map((match, i) => {
+                const winnerLogo = getTeamLogo(match.predicted_winner);
+                return (
+                  <div
+                    key={i}
+                    className="table-row"
+                    style={{ gridTemplateColumns: '1fr 1.5fr 1.5fr 1.25fr' }}
                   >
-                    {match.date || 'TBD'}
-                  </span>
-                  <span
-                    className="mono-label"
-                    style={{ fontSize: '0.75rem', color: 'var(--color-text-main)' }}
-                  >
-                    {match.team1}
-                  </span>
-                  <span
-                    className="mono-label"
-                    style={{ fontSize: '0.75rem', color: 'var(--color-text-main)' }}
-                  >
-                    {match.team2}
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                    <span
-                      style={{
-                        width: '6px',
-                        height: '6px',
-                        background: 'var(--color-primary)',
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span
-                      className="mono-label"
-                      style={{
-                        color: 'var(--color-primary)',
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                      }}
-                    >
-                      {match.predicted_winner}
+                    <span className="mono-label text-[0.6875rem] text-paper-muted">
+                      {match.date || 'TBD'}
                     </span>
+                    <TeamCell name={match.team1} />
+                    <TeamCell name={match.team2} />
+                    <div className="flex items-center gap-2">
+                      {winnerLogo ? (
+                        <img
+                          src={winnerLogo}
+                          alt=""
+                          aria-hidden="true"
+                          className="h-5 w-5 shrink-0 object-contain"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span className="h-1.5 w-1.5 shrink-0 bg-saffron" />
+                      )}
+                      <span className="mono-label text-xs font-bold text-saffron">
+                        {match.predicted_winner}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
