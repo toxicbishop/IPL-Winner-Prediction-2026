@@ -50,3 +50,32 @@ node_modules/
 
 #Claude
 .claude/
+
+#Dashboard
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.vite/
+
+# Vite / frontend build artifacts
+**/.vite/
+**/*.tsbuildinfo
+
+# Env (local overrides)
+.env
+.env.local
+.env.*.local
+*.local
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Coverage / test output
+coverage/
+.nyc_output/
+
+# OS / Editor extras
+Thumbs.db
+.vs/
