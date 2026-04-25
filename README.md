@@ -1,5 +1,7 @@
 # IPL 2026 Winner Prediction
 
+![Dashboard Preview](Public/assets/Dashboard.png)
+
 A complete machine learning pipeline to predict IPL 2026 outcomes using real ball-by-ball IPL data.
 
 The project supports two prediction modes:
@@ -132,6 +134,8 @@ IPL-Winner-Prediction-2026/
 ├── config.py
 ├── main.py
 ├── server.py
+├── Public/           (Assets and Screenshots)
+│   └── assets/
 ├── data/
 │   ├── raw_datasets/ (Cricsheet JSONs)
 │   │   ├── ipl
