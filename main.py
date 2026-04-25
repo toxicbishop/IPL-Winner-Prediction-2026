@@ -63,13 +63,13 @@ def mode_setup():
     logger.info(f"Setup complete in {time.time() - t0:.1f}s")
 
 
-def mode_train():
+def mode_train(sanity_check: bool = False):
     logger.info("=== TRAIN: Training all models ===")
     t0 = time.time()
 
     from src.models.trainer import run_training
 
-    results = run_training()
+    results = run_training(sanity_check=sanity_check)
 
     logger.info(f"Training complete in {time.time() - t0:.1f}s")
     return results
@@ -108,9 +108,9 @@ def mode_visualize():
             logger.warning(f"SHAP explanation for {model} failed: {e}")
 
 
-def mode_all():
+def mode_all(sanity_check: bool = False):
     mode_setup()
-    mode_train()
+    mode_train(sanity_check=sanity_check)
     rankings = mode_predict()
     try:
         mode_visualize()
@@ -131,6 +131,11 @@ def parse_args():
         default="all",
         help="Pipeline mode to run (default: all)",
     )
+    parser.add_argument(
+        "--sanity-check",
+        action="store_true",
+        help="Run feature ablation sanity check after training",
+    )
     return parser.parse_args()
 
 
@@ -141,10 +146,10 @@ if __name__ == "__main__":
     if args.mode == "setup":
         mode_setup()
     elif args.mode == "train":
-        mode_train()
+        mode_train(sanity_check=args.sanity_check)
     elif args.mode == "predict":
         mode_predict()
     elif args.mode == "visualize":
         mode_visualize()
     elif args.mode == "all":
-        mode_all()
+        mode_all(sanity_check=args.sanity_check)
