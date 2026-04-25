@@ -3,8 +3,9 @@ import logging
 import os
 import subprocess
 import sys
+from typing import Any
+
 import pandas as pd
-from typing import Any, Dict, List
 
 # Setup logger for the service
 logger = logging.getLogger("ipl.api.service")
@@ -78,7 +79,7 @@ def simulate_h2h(team1: str, team2: str, tournament: str) -> Any:
     from src.prediction.match_predictor import predict_match
     return predict_match(team1, team2, tournament=tournament)
 
-def trigger_pipeline() -> Dict[str, str]:
+def trigger_pipeline() -> dict[str, str]:
     if not os.path.exists(REBUILD_SCRIPT):
         raise FileNotFoundError("Pipeline script not found.")
     
@@ -97,7 +98,7 @@ def trigger_pipeline() -> Dict[str, str]:
     logger.info("Pipeline completed successfully.")
     return {"status": "success", "message": "Pipeline finished."}
 
-def get_team_logos() -> Dict[str, str]:
+def get_team_logos() -> dict[str, str]:
     """Returns a mapping of team IDs to their logo URLs."""
     logo_dir = "data/assets/logos"
     logos = {}
