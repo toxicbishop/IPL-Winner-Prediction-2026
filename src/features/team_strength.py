@@ -1,58 +1,133 @@
 """
-Team batting and bowling strength features derived from player_stats table.
+Team batting and bowling strength features derived from player_stats table
+AND ball-by-ball data (for death overs / boundary stats).
 
-For each team × season, computes:
-  - Top-3 batsmen average (higher → better batting depth)
-  - Top-3 bowlers economy (lower → better bowling attack)
-  - Batting vs bowling balance score
+For each team x season, computes:
+  - Top-5 batsmen avg strike rate (explosiveness)
+  - Top-3 bowlers avg economy (bowling control)
+  - Top-3 batsmen avg runs (batting depth)
+  - Death over economy (overs 16-20, from ball-by-ball)
+  - Boundary percentage (4s + 6s contribution, from ball-by-ball)
+  - Batting strength (normalized composite)
+  - Bowling strength (normalized composite)
+  - Allrounder depth
 
-These are causal features: a team with high batting avg will tend to win.
-Unlike win-rate features (which are outcomes), these capture WHY a team is strong.
+All features are season-aggregated from the player_stats table.
+ball-by-ball features are loaded from CSV when available.
 """
 
-import sqlite3
-from functools import cache
+import os
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
 
-from config import SQLITE_DB_PATH
+from config import DB_ENGINE, get_tournament_paths
+from src.data.db_utils import read_query
 
-# Current tournament DB path (can be overridden)
-CURRENT_DB_PATH = SQLITE_DB_PATH
+# Current tournament DB identifier/path
+CURRENT_DB_ID = "ipl"
 
-# IPL average batting avg and economy (for normalization)
+# IPL averages for normalization (sensible defaults)
 IPL_AVG_BATTING_AVG = 28.0
 IPL_AVG_ECONOMY = 8.5
 IPL_AVG_SR = 135.0
+IPL_AVG_DEATH_ECON = 10.5  # Death overs are expensive
+IPL_AVG_BOUNDARY_PCT = 55.0  # ~55% of runs from boundaries in T20
+
+# Cache for ball-by-ball data
+_ball_by_ball_cache = None
 
 
 def set_db_path(path: str):
-    global CURRENT_DB_PATH
-    if CURRENT_DB_PATH != path:
-        load_player_stats_cache.cache_clear()
-        CURRENT_DB_PATH = path
+    """Note: path is ignored if DB_ENGINE=postgres, using config settings instead."""
+    global CURRENT_DB_ID, _ball_by_ball_cache
+    # If path looks like a full file path to a db, try to extract the tournament name
+    if "icc_men" in path:
+        CURRENT_DB_ID = "icc_men"
+    elif "icc_women" in path:
+        CURRENT_DB_ID = "icc_women"
+    else:
+        CURRENT_DB_ID = "ipl"
+    load_player_stats_cache.cache_clear()
+    _ball_by_ball_cache = None  # Force reload
 
 
-@cache
+@lru_cache(maxsize=1)
 def load_player_stats_cache() -> pd.DataFrame:
     """Load player stats once and cache."""
-    conn = sqlite3.connect(CURRENT_DB_PATH)
-    df = pd.read_sql_query(
-        "SELECT season, player_name, team, role, batting_avg, batting_sr, "
-        "       runs_scored, wickets, bowling_avg, economy "
-        "FROM player_stats ORDER BY season, team",
-        conn,
-    )
-    conn.close()
-    return df
+    db_path = None
+    if DB_ENGINE == "sqlite":
+        paths = get_tournament_paths(CURRENT_DB_ID)
+        db_path = paths["db"]
+
+    query = """
+        SELECT season, player_name, team, role, batting_avg, batting_sr,
+               runs_scored, wickets, bowling_avg, economy
+        FROM player_stats ORDER BY season, team
+    """
+    return read_query(query, db_path=db_path)
+
+
+def load_ball_by_ball() -> pd.DataFrame:
+    """Load the ball-by-ball CSV for the current tournament."""
+    global _ball_by_ball_cache
+    if _ball_by_ball_cache is not None:
+        return _ball_by_ball_cache
+
+    paths = get_tournament_paths(CURRENT_DB_ID)
+    bbb_path = os.path.join(os.path.dirname(paths["matches"]), "ball_by_ball.csv")
+    if os.path.exists(bbb_path):
+        df = pd.read_csv(bbb_path)
+        # Normalize team names
+        from config import TEAM_ALIASES
+
+        if "batting_team" in df.columns:
+            df["batting_team"] = df["batting_team"].map(lambda x: TEAM_ALIASES.get(x, x))
+        if "bowling_team" in df.columns:
+            df["bowling_team"] = df["bowling_team"].map(lambda x: TEAM_ALIASES.get(x, x))
+        # Extract season year
+        if "season" in df.columns:
+            from src.data.create_dataset import SEASON_TO_YEAR
+
+            df["season_year"] = df["season"].astype(str).map(SEASON_TO_YEAR)
+            if "date" in df.columns:
+                df["year"] = pd.to_datetime(df["date"], errors="coerce").dt.year
+                df["season_year"] = df["season_year"].fillna(df["year"])
+            df["season_year"] = df["season_year"].fillna(0).astype(int)
+
+        _ball_by_ball_cache = df
+        return df
+    else:
+        # Return empty dataframe with expected columns
+        return pd.DataFrame(
+            columns=[
+                "match_id",
+                "season",
+                "season_year",
+                "date",
+                "innings",
+                "over",
+                "batting_team",
+                "bowling_team",
+                "batter",
+                "bowler",
+                "runs_batter",
+                "runs_total",
+                "player_out",
+            ]
+        )
+
+
+# ---------------------------------------------------------------------------
+# Core strength calculations
+# ---------------------------------------------------------------------------
 
 
 def get_team_batting_strength(team: str, season: int) -> float:
     """
     Average batting average of top-3 run-scorers for this team in this season.
-    Normalized to 0–1 range.
-    Falls back to IPL average if no data.
+    Normalized to 0-1 range.
     """
     df = load_player_stats_cache()
     batsmen = df[
@@ -60,7 +135,6 @@ def get_team_batting_strength(team: str, season: int) -> float:
     ].nlargest(3, "batting_avg")
 
     if len(batsmen) == 0:
-        # Try previous season
         prev = df[
             (df["team"] == team) & (df["season"] == season - 1) & (df["batting_avg"] > 0)
         ].nlargest(3, "batting_avg")
@@ -70,13 +144,13 @@ def get_team_batting_strength(team: str, season: int) -> float:
     else:
         avg = batsmen["batting_avg"].mean()
 
-    return float(np.clip(avg / 60.0, 0, 1))  # 60 avg = top tier
+    return float(np.clip(avg / 60.0, 0, 1))
 
 
 def get_team_bowling_strength(team: str, season: int) -> float:
     """
     Average economy of top-3 wicket-takers for this team (lower economy = better).
-    Normalized to 0–1 range where 1 = best (most economical).
+    Normalized to 0-1 range where 1 = best (most economical).
     """
     df = load_player_stats_cache()
     bowlers = df[
@@ -93,7 +167,7 @@ def get_team_bowling_strength(team: str, season: int) -> float:
     else:
         econ = bowlers["economy"].mean()
 
-    # Lower economy = better. Map [12, 6] → [0, 1]
+    # Lower economy = better. Map [12, 6] -> [0, 1]
     return float(np.clip((12.0 - econ) / 6.0, 0, 1))
 
 
@@ -110,32 +184,176 @@ def get_team_allrounder_strength(team: str, season: int) -> float:
     return min(len(allrounders) / max(len(team_players), 1), 1.0)
 
 
-def get_team_strength_features(team: str, season: int) -> dict:
-    """Returns all team strength features for a given team and season.
-
-    For IPL predictions at season >= 2026, derive the features bottom-up from
-    the projected 2026 roster and per-player career form (player_form).
-    For historical seasons and non-IPL tournaments, keep the legacy
-    player_stats aggregation so training features stay unchanged.
+def get_team_advanced_metrics(team: str, season: int) -> dict:
     """
+    Calculates:
+      - Top 5 Batsmen SR (explosiveness)
+      - Top 3 Bowlers Economy (bowling control)
+      - Top 3 Batsmen avg runs (batting depth)
+    """
+    df = load_player_stats_cache()
+    team_players = df[(df["team"] == team) & (df["season"] == season)]
+
+    if len(team_players) == 0:
+        return {
+            "top5_bat_sr": IPL_AVG_SR,
+            "top3_bowl_econ": IPL_AVG_ECONOMY,
+            "top3_bat_runs": IPL_AVG_BATTING_AVG,
+        }
+
+    # Top 5 Batsmen by runs
+    top5_bats = team_players[team_players["runs_scored"] > 0].nlargest(5, "runs_scored")
+    avg_sr = top5_bats["batting_sr"].mean() if len(top5_bats) > 0 else IPL_AVG_SR
+    avg_runs = top5_bats["runs_scored"].mean() if len(top5_bats) > 0 else 0
+
+    # Top 3 Bowlers by wickets
+    top3_bowls = team_players[team_players["wickets"] > 0].nlargest(3, "wickets")
+    avg_econ = top3_bowls["economy"].mean() if len(top3_bowls) > 0 else IPL_AVG_ECONOMY
+
+    return {
+        "top5_bat_sr": float(avg_sr),
+        "top3_bowl_econ": float(avg_econ),
+        "top3_bat_runs": float(avg_runs),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Ball-by-ball derived features (Death overs + Boundaries)
+# ---------------------------------------------------------------------------
+
+
+def get_death_over_economy(team: str, season: int) -> float:
+    """
+    Bowling economy in death overs (16-20) for the BOWLING team.
+    Lower = better death bowling.
+    Returns normalized score: (14 - death_econ) / 8 -> [0, 1] where 1 = best.
+    """
+    bbb = load_ball_by_ball()
+    if len(bbb) == 0:
+        return (14.0 - IPL_AVG_DEATH_ECON) / 8.0
+
+    death = bbb[
+        (bbb["bowling_team"] == team) & (bbb["season_year"] == season) & (bbb["over"] >= 16)
+    ]
+
+    if len(death) == 0:
+        # Fallback to previous season
+        death = bbb[
+            (bbb["bowling_team"] == team) & (bbb["season_year"] == season - 1) & (bbb["over"] >= 16)
+        ]
+
+    if len(death) == 0:
+        return (14.0 - IPL_AVG_DEATH_ECON) / 8.0
+
+    total_runs = death["runs_total"].sum()
+    total_balls = len(death)
+    overs = total_balls / 6.0
+
+    if overs < 1:
+        return (14.0 - IPL_AVG_DEATH_ECON) / 8.0
+
+    death_econ = total_runs / overs
+    return float(np.clip((14.0 - death_econ) / 8.0, 0, 1))
+
+
+def get_boundary_percentage(team: str, season: int) -> float:
+    """
+    Percentage of batting runs scored via boundaries (4s and 6s).
+    Higher = more explosive batting lineup.
+    Returns raw percentage (typically 45-65% in T20).
+    """
+    bbb = load_ball_by_ball()
+    if len(bbb) == 0:
+        return IPL_AVG_BOUNDARY_PCT
+
+    batting = bbb[(bbb["batting_team"] == team) & (bbb["season_year"] == season)]
+
+    if len(batting) == 0:
+        batting = bbb[(bbb["batting_team"] == team) & (bbb["season_year"] == season - 1)]
+
+    if len(batting) == 0:
+        return IPL_AVG_BOUNDARY_PCT
+
+    total_runs = batting["runs_batter"].sum()
+    if total_runs == 0:
+        return IPL_AVG_BOUNDARY_PCT
+
+    boundary_runs = batting[batting["runs_batter"].isin([4, 6])]["runs_batter"].sum()
+    return float(boundary_runs / total_runs * 100)
+
+
+def get_powerplay_economy(team: str, season: int) -> float:
+    """
+    Bowling economy in powerplay (overs 0-5) for the BOWLING team.
+    Lower = better new-ball bowling.
+    Returns normalized score: (12 - pp_econ) / 6 -> [0, 1] where 1 = best.
+    """
+    bbb = load_ball_by_ball()
+    if len(bbb) == 0:
+        return 0.5
+
+    pp = bbb[(bbb["bowling_team"] == team) & (bbb["season_year"] == season) & (bbb["over"] < 6)]
+
+    if len(pp) == 0:
+        pp = bbb[
+            (bbb["bowling_team"] == team) & (bbb["season_year"] == season - 1) & (bbb["over"] < 6)
+        ]
+
+    if len(pp) == 0:
+        return 0.5
+
+    total_runs = pp["runs_total"].sum()
+    overs = len(pp) / 6.0
+    if overs < 1:
+        return 0.5
+
+    pp_econ = total_runs / overs
+    return float(np.clip((12.0 - pp_econ) / 6.0, 0, 1))
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+
+def get_team_strength_features(team: str, season: int) -> dict:
+    """Returns all team strength features for a given team and season."""
     if season >= 2026:
         try:
             from src.features.player_form import team_strength_from_roster
 
             feats = team_strength_from_roster(team, season)
+            # Add advanced metrics placeholders for 2026 if not present
+            feats.setdefault("top5_bat_sr", 135.0)
+            feats.setdefault("top3_bowl_econ", 8.2)
+            feats.setdefault("top3_bat_runs", 300.0)
             feats.setdefault(
                 "bat_bowl_balance", abs(feats["batting_strength"] - feats["bowling_strength"])
             )
+            feats.setdefault("death_bowl_str", 0.5)
+            feats.setdefault("boundary_pct", IPL_AVG_BOUNDARY_PCT)
+            feats.setdefault("pp_bowl_str", 0.5)
             return feats
         except Exception:
-            pass  # fall back to legacy path on any load/parse issue
+            pass
 
     bat = get_team_batting_strength(team, season)
     bowl = get_team_bowling_strength(team, season)
     allround = get_team_allrounder_strength(team, season)
+    adv = get_team_advanced_metrics(team, season)
+    death = get_death_over_economy(team, season)
+    bdry = get_boundary_percentage(team, season)
+    pp = get_powerplay_economy(team, season)
+
     return {
         "batting_strength": bat,
         "bowling_strength": bowl,
         "allround_strength": allround,
-        "bat_bowl_balance": abs(bat - bowl),  # closer to 0 = balanced team
+        "top5_bat_sr": adv["top5_bat_sr"],
+        "top3_bowl_econ": adv["top3_bowl_econ"],
+        "top3_bat_runs": adv["top3_bat_runs"],
+        "bat_bowl_balance": abs(bat - bowl),
+        "death_bowl_str": death,
+        "boundary_pct": bdry,
+        "pp_bowl_str": pp,
     }

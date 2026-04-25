@@ -14,11 +14,11 @@ Features generated per match row (team1 vs team2):
 """
 
 import os
-import sqlite3
 
 import pandas as pd
 
 from config import FORM_WINDOW, H2H_WINDOW_SEASONS, get_tournament_paths
+from src.data.db_utils import get_connection
 from src.features.team_strength import get_team_strength_features, set_db_path
 from src.features.venue_features import (
     get_venue_avg_score,
@@ -80,7 +80,23 @@ def get_last_n_seasons_wr(
 
 
 def get_recent_form(matches: pd.DataFrame, team: str, before_idx: int, n: int = 5) -> float:
-    """Win rate of `team` in its last `n` matches before row index `before_idx`."""
+    """Exponentially weighted win rate of `team` in its last `n` matches."""
+    past = matches.iloc[:before_idx]
+    team_matches = past[(past["team1"] == team) | (past["team2"] == team)]
+    recent = team_matches.tail(n)
+    if len(recent) == 0:
+        return 0.5
+
+    # Weights: 1.0 for most recent, 0.6 for 5th oldest
+    weights = [0.6, 0.7, 0.8, 0.9, 1.0][-len(recent) :]
+    results = (recent["winner"] == team).astype(int).tolist()
+
+    weighted_wins = sum(w * res for w, res in zip(weights, results, strict=False))
+    return weighted_wins / sum(weights)
+
+
+def get_last_n_form(matches: pd.DataFrame, team: str, before_idx: int, n: int = 10) -> float:
+    """Simple win rate over last n matches (no weighting). Good for stability."""
     past = matches.iloc[:before_idx]
     team_matches = past[(past["team1"] == team) | (past["team2"] == team)]
     recent = team_matches.tail(n)
@@ -88,6 +104,27 @@ def get_recent_form(matches: pd.DataFrame, team: str, before_idx: int, n: int = 
         return 0.5
     wins = (recent["winner"] == team).sum()
     return wins / len(recent)
+
+
+def get_recent_nrr(matches: pd.DataFrame, team: str, before_idx: int, n: int = 5) -> float:
+    """Approximate NRR based on win margins in last n matches."""
+    past = matches.iloc[:before_idx]
+    team_matches = past[(past["team1"] == team) | (past["team2"] == team)]
+    recent = team_matches.tail(n)
+    if len(recent) == 0:
+        return 0.0
+
+    margins = []
+    for _, row in recent.iterrows():
+        if row["winner"] == team:
+            margin = row["win_by_runs"] + (row["win_by_wickets"] * 5)
+            margins.append(margin)
+        else:
+            margin = -(row["win_by_runs"] + (row["win_by_wickets"] * 5))
+            margins.append(margin)
+
+    # Average margin per match, normalized (e.g., 50 run win / 10 = 5.0)
+    return sum(margins) / len(margins) / 20.0
 
 
 def get_h2h_rate(
@@ -175,12 +212,16 @@ def get_win_streak(matches: pd.DataFrame, team: str, before_idx: int) -> int:
 
 def load_champions_by_season(db_path: str) -> dict:
     """Load season champions from SQLite season_stats table."""
-    if not os.path.exists(db_path):
+    from config import DB_ENGINE
+
+    if DB_ENGINE == "sqlite" and not os.path.exists(db_path):
         return {}
-    conn = sqlite3.connect(db_path)
+    from sqlalchemy import text
+
     try:
-        rows = conn.execute("SELECT season, team FROM season_stats WHERE won_title = 1").fetchall()
-        return {int(season): team for season, team in rows}
+        conn = get_connection(db_path)
+        res = conn.execute(text("SELECT season, team FROM season_stats WHERE won_title = 1"))
+        return {int(season): team for season, team in res.fetchall()}
     finally:
         conn.close()
 
@@ -228,7 +269,7 @@ def build_features(matches_df: pd.DataFrame, db_path: str, tournament: str) -> p
         f["team1"] = t1
         f["team2"] = t2
 
-        # Toss features
+        # Toss features (kept minimal - only as context, not primary signal)
         f["toss_won_by_team1"] = int(row.get("toss_won_by_team1", 0))
         f["toss_decision_bat"] = int(row.get("toss_decision_bat", 0))
 
@@ -246,10 +287,20 @@ def build_features(matches_df: pd.DataFrame, db_path: str, tournament: str) -> p
         f["t2_last3yr_wr"] = get_last_n_seasons_wr(df, t2, season, n_seasons=3)
         f["last3yr_wr_diff"] = f["t1_last3yr_wr"] - f["t2_last3yr_wr"]
 
-        # Recent match form (last 5 matches)
+        # Recent match form (last 5 matches - exponentially weighted)
         f["t1_recent_form"] = get_recent_form(df, t1, idx, FORM_WINDOW)
         f["t2_recent_form"] = get_recent_form(df, t2, idx, FORM_WINDOW)
         f["form_diff"] = f["t1_recent_form"] - f["t2_recent_form"]
+
+        # Longer-term form (last 10 matches - stable trend)
+        f["t1_last10_form"] = get_last_n_form(df, t1, idx, 10)
+        f["t2_last10_form"] = get_last_n_form(df, t2, idx, 10)
+        f["last10_form_diff"] = f["t1_last10_form"] - f["t2_last10_form"]
+
+        # NRR Form (approximate - margin based)
+        f["t1_recent_nrr"] = get_recent_nrr(df, t1, idx, FORM_WINDOW)
+        f["t2_recent_nrr"] = get_recent_nrr(df, t2, idx, FORM_WINDOW)
+        f["nrr_diff"] = f["t1_recent_nrr"] - f["t2_recent_nrr"]
 
         # Season form
         f["t1_season_form"] = get_season_form(df, t1, season, idx)
@@ -277,9 +328,13 @@ def build_features(matches_df: pd.DataFrame, db_path: str, tournament: str) -> p
         f["venue_toss_impact"] = get_venue_toss_impact(venue)
         f["venue_size"] = get_venue_size(venue)
 
-        # Team batting/bowling strength
+        # ============================================================
+        # TEAM STRENGTH (from player stats + ball-by-ball)
+        # ============================================================
         t1_str = get_team_strength_features(t1, season)
         t2_str = get_team_strength_features(t2, season)
+
+        # Core batting/bowling strength
         f["t1_batting_str"] = t1_str["batting_strength"]
         f["t2_batting_str"] = t2_str["batting_strength"]
         f["batting_str_diff"] = t1_str["batting_strength"] - t2_str["batting_strength"]
@@ -287,19 +342,19 @@ def build_features(matches_df: pd.DataFrame, db_path: str, tournament: str) -> p
         f["t2_bowling_str"] = t2_str["bowling_strength"]
         f["bowling_str_diff"] = t1_str["bowling_strength"] - t2_str["bowling_strength"]
 
-        # Target
-        f["team1_won"] = int(row["team1_won"])
+        # Advanced Player Metrics (from player_stats)
+        f["top5_bat_sr_diff"] = t1_str["top5_bat_sr"] - t2_str["top5_bat_sr"]
+        f["top3_bowl_econ_diff"] = t1_str["top3_bowl_econ"] - t2_str["top3_bowl_econ"]
+        f["top3_bat_runs_diff"] = t1_str["top3_bat_runs"] - t2_str["top3_bat_runs"]
 
-        # Interaction features for T20 Strategy
-        # Chasing Advantage (Dew factor implication)
-        t1_chasing = (
-            1
-            if (f["toss_won_by_team1"] == 1 and f["toss_decision_bat"] == 0)
-            or (f["toss_won_by_team1"] == 0 and f["toss_decision_bat"] == 1)
-            else 0
-        )
-        f["t1_chasing"] = t1_chasing
-        f["t2_chasing"] = 1 - t1_chasing
+        # Ball-by-ball derived features
+        f["death_bowl_diff"] = t1_str["death_bowl_str"] - t2_str["death_bowl_str"]
+        f["boundary_pct_diff"] = t1_str["boundary_pct"] - t2_str["boundary_pct"]
+        f["pp_bowl_diff"] = t1_str["pp_bowl_str"] - t2_str["pp_bowl_str"]
+
+        # ============================================================
+        # INTERACTION FEATURES (Momentum, Matchups)
+        # ============================================================
 
         # Momentum (Form * Venue mastery * Batting Strength)
         f["t1_momentum"] = f["t1_recent_form"] * f["t1_venue_wr"] * f["t1_batting_str"]
@@ -313,6 +368,9 @@ def build_features(matches_df: pd.DataFrame, db_path: str, tournament: str) -> p
         f["win_streak_diff"] = s1 - s2
         f["bat_vs_bowl_diff"] = f["t1_batting_str"] - f["t2_bowling_str"]
         f["bowl_vs_bat_diff"] = f["t1_bowling_str"] - f["t2_batting_str"]
+
+        # Target
+        f["team1_won"] = int(row["team1_won"])
 
         rows.append(f)
 
@@ -340,6 +398,7 @@ def run_feature_engineering(tournament: str = "ipl") -> pd.DataFrame:
 
     # Save to Feature Store (Parquet)
     from src.features.store import save_features as store_features
+
     store_features(df_features, tournament)
 
     return df_features
