@@ -135,6 +135,31 @@ class EnsembleModel:
             ),
         }
 
+    def cross_validate(self, df: pd.DataFrame) -> dict:
+        """Runs full ensemble training/prediction in a cross-validation loop."""
+        y = df[TARGET_COL].values
+        skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+        scores = []
+
+        print(f"Ensemble Cross-Validation ({CV_FOLDS} folds)...")
+        for fold, (train_idx, val_idx) in enumerate(skf.split(df, y)):
+            train_df = df.iloc[train_idx]
+            val_df = df.iloc[val_idx]
+
+            # Fresh ensemble instance for each fold
+            fold_ensemble = self.__class__(save_dir=self.save_dir)
+            fold_ensemble.train(train_df)
+
+            metrics = fold_ensemble.evaluate(val_df)
+            scores.append(metrics["accuracy"])
+            print(f"  Fold {fold + 1} accuracy: {metrics['accuracy']:.4f}")
+
+        return {
+            "cv_mean": round(np.mean(scores), 4),
+            "cv_std": round(np.std(scores), 4),
+            "cv_scores": [round(s, 4) for s in scores],
+        }
+
     def evaluate_2024(self, df: pd.DataFrame) -> dict:
         """Specific evaluation on 2024 season matches."""
         if "season" not in df.columns:
