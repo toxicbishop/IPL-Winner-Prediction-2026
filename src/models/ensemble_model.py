@@ -9,7 +9,14 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import StratifiedKFold
 
 from config import CV_FOLDS, MODELS_DIR, RANDOM_STATE, get_tournament_paths
@@ -111,11 +118,31 @@ class EnsembleModel:
         y = df[TARGET_COL].values
         preds = self.predict(df)
         probs = self.predict_proba(df)[:, 1]
+
+        acc = accuracy_score(y, preds)
+        prec = precision_score(y, preds, zero_division=0)
+        rec = recall_score(y, preds, zero_division=0)
+        f1 = f1_score(y, preds, zero_division=0)
+
         return {
-            "accuracy": round(accuracy_score(y, preds), 4),
+            "accuracy": round(acc, 4),
+            "precision": round(prec, 4),
+            "recall": round(rec, 4),
+            "f1_score": round(f1, 4),
             "roc_auc": round(roc_auc_score(y, probs), 4),
-            "report": classification_report(y, preds, target_names=["team2_won", "team1_won"]),
+            "report": classification_report(
+                y, preds, target_names=["team2_won", "team1_won"], zero_division=0
+            ),
         }
+
+    def evaluate_2024(self, df: pd.DataFrame) -> dict:
+        """Specific evaluation on 2024 season matches."""
+        if "season" not in df.columns:
+            return {}
+        df_2024 = df[df["season"] == 2024].copy()
+        if df_2024.empty:
+            return {}
+        return self.evaluate(df_2024)
 
     def save(self):
         os.makedirs(self.save_dir, exist_ok=True)
