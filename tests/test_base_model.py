@@ -1,6 +1,6 @@
 """Validation guards added to BaseIPLModel.get_X_y."""
+
 import numpy as np
-import pandas as pd
 import pytest
 
 from src.models.base_model import FEATURE_COLS, TARGET_COL
@@ -41,5 +41,5 @@ def test_get_X_y_raises_on_nan_feature(model, mock_features_df):
 def test_get_X_y_raises_on_nan_target(model, mock_features_df):
     df = mock_features_df.copy()
     df.loc[0, TARGET_COL] = np.nan
-    with pytest.raises(ValueError, match=f"NaN values found in target column"):
+    with pytest.raises(ValueError, match="NaN values found in target column"):
         model.get_X_y(df)

@@ -2,15 +2,18 @@
 SHAP-based feature importance and model explainability.
 Generates summary plots for tree-based models and the ensemble.
 """
+
 import os
+
+import matplotlib
 import numpy as np
 import pandas as pd
-import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from config import FEATURES_CSV, RESULTS_DIR
-from src.models.base_model import FEATURE_COLS, TARGET_COL
+from src.models.base_model import FEATURE_COLS
 
 
 def compute_shap_values(model_instance, df: pd.DataFrame):
@@ -34,7 +37,7 @@ def compute_shap_values(model_instance, df: pd.DataFrame):
         return None, None
 
     try:
-        explainer   = shap.TreeExplainer(model)
+        explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(X)
         # For binary classification, shap_values may be a list [class0, class1]
         # or a 3D array of shape (n_samples, n_features, n_classes)
@@ -51,7 +54,7 @@ def compute_shap_values(model_instance, df: pd.DataFrame):
 def plot_shap_summary(shap_values, X: np.ndarray, model_name: str, save_path: str = None):
     """Plot SHAP summary bar chart (mean absolute SHAP per feature)."""
     try:
-        import shap
+        import shap  # noqa: F401
     except ImportError:
         return
 
@@ -82,20 +85,20 @@ def plot_shap_summary(shap_values, X: np.ndarray, model_name: str, save_path: st
 
 def run_shap_analysis(df: pd.DataFrame):
     """Run SHAP analysis on RF, XGBoost, and LightGBM."""
-    from src.models.random_forest_model  import RandomForestModel
-    from src.models.xgboost_model        import XGBoostModel
-    from src.models.lightgbm_model       import LightGBMModel
+    from src.models.lightgbm_model import LightGBMModel
+    from src.models.random_forest_model import RandomForestModel
+    from src.models.xgboost_model import XGBoostModel
 
     models_to_analyze = [
-        ("random_forest",  RandomForestModel),
-        ("xgboost",        XGBoostModel),
-        ("lightgbm",       LightGBMModel),
+        ("random_forest", RandomForestModel),
+        ("xgboost", XGBoostModel),
+        ("lightgbm", LightGBMModel),
     ]
 
     for name, cls in models_to_analyze:
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print(f"SHAP Analysis: {name.upper()}")
-        print("="*50)
+        print("=" * 50)
         try:
             m = cls()
             m.load()

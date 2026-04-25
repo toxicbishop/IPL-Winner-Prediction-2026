@@ -1,8 +1,9 @@
-import os
-import sys
 import json
-import subprocess
 import logging
+import os
+import subprocess
+import sys
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -86,6 +87,7 @@ def get_match_fixtures(tournament: str = "ipl"):
     path = os.path.join(RESULTS_PATH, tournament, f"{tournament}_2026_match_predictions.csv")
     if os.path.exists(path):
         import pandas as pd
+
         df = pd.read_csv(path)
         return df.to_dict(orient="records")
     return {"error": f"Match predictions for {tournament} not found."}
@@ -106,10 +108,11 @@ def get_shap_importance(model_name: str, tournament: str = "ipl"):
 def get_intelligence(tournament: str = "ipl"):
     tournament = _validate_tournament(tournament)
     from src.prediction.predict_2026 import (
-        SQUAD_STRENGTH_2026,
         PLAYOFF_RATE_3YR,
         SEASON_2025_RANK_SCORE,
+        SQUAD_STRENGTH_2026,
     )
+
     return {
         "squad_strength": SQUAD_STRENGTH_2026,
         "playoff_rate": PLAYOFF_RATE_3YR,
@@ -129,12 +132,12 @@ def trigger_pipeline():
             timeout=PIPELINE_TIMEOUT_SECONDS,
             check=False,
         )
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as e:
         logger.error("Pipeline timed out after %ss", PIPELINE_TIMEOUT_SECONDS)
-        raise HTTPException(status_code=504, detail="Pipeline timed out.")
+        raise HTTPException(status_code=504, detail="Pipeline timed out.") from e
     except FileNotFoundError as e:
         logger.exception("Pipeline executable not found")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     if result.returncode != 0:
         logger.error("Pipeline failed (rc=%s): %s", result.returncode, result.stderr[-2000:])
@@ -148,4 +151,5 @@ def trigger_pipeline():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

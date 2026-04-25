@@ -6,16 +6,18 @@ Usage:
   from src.prediction.match_predictor import predict_match
   result = predict_match("MI", "CSK")
 """
+
 import sys
+
 import pandas as pd
 
-from config import PROCESSED_MATCHES_CSV, FEATURES_CSV
-from src.models.base_model import FEATURE_COLS
+from config import PROCESSED_MATCHES_CSV
 from src.prediction.predict_2026 import build_matchup_features
 
 
-def predict_match(team1: str, team2: str, venue: str = None,
-                  toss_winner: str = None, toss_decision: str = "field") -> dict:
+def predict_match(
+    team1: str, team2: str, venue: str = None, toss_winner: str = None, toss_decision: str = "field"
+) -> dict:
     """
     Predict the winner of a single match.
 
@@ -36,6 +38,7 @@ def predict_match(team1: str, team2: str, venue: str = None,
         model.load()
     except FileNotFoundError:
         from src.models.xgboost_model import XGBoostModel
+
         model = XGBoostModel()
         model.load()
 
@@ -58,6 +61,7 @@ def predict_match(team1: str, team2: str, venue: str = None,
     t2_prob = 1 - t1_prob
 
     from config import TEAMS
+
     winner = team1 if t1_prob >= 0.5 else team2
 
     return {
@@ -74,18 +78,19 @@ def predict_match(team1: str, team2: str, venue: str = None,
 
 
 def print_match_result(result: dict):
-    print("\n" + "─"*50)
-    print(f"  MATCH PREDICTION")
-    print("─"*50)
+    print("\n" + "─" * 50)
+    print("  MATCH PREDICTION")
+    print("─" * 50)
     print(f"  {result['team1_name']:<30} {result['team1_win_prob']:>6.2f}%")
     print(f"  {result['team2_name']:<30} {result['team2_win_prob']:>6.2f}%")
-    print("─"*50)
+    print("─" * 50)
     print(f"  Winner: {result['predicted_winner_name']}  ({result['confidence']:.2f}% confidence)")
-    print("─"*50)
+    print("─" * 50)
 
 
 if __name__ == "__main__":
     import sys
+
     t1 = sys.argv[1] if len(sys.argv) > 1 else "MI"
     t2 = sys.argv[2] if len(sys.argv) > 2 else "CSK"
     result = predict_match(t1, t2)

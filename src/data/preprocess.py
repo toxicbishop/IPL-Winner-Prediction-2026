@@ -2,12 +2,14 @@
 Data preprocessing: reads raw matches CSV and outputs a clean
 processed DataFrame saved as CSV for feature engineering.
 """
+
 import os
+
 import pandas as pd
 
 from config import (
-    get_tournament_paths, TOURNAMENTS,
-    ACTIVE_TEAMS_2026, RETIRED_TEAM_MAP,
+    RETIRED_TEAM_MAP,
+    get_tournament_paths,
 )
 
 # Teams that are retired (map to successors for continuity)
@@ -108,6 +110,7 @@ def run_preprocessing(tournament: str = "ipl") -> pd.DataFrame:
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--tournament", default="ipl")
     args = parser.parse_args()

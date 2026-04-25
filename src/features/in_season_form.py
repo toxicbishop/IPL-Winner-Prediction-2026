@@ -7,6 +7,7 @@ The signal is fed into the Bayesian update in predict_2026.py with a weight that
 ramps with the number of matches played, so it contributes little pre-tournament
 and grows into a dominant signal by mid-season.
 """
+
 from __future__ import annotations
 
 import os

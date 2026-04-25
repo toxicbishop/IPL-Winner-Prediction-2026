@@ -4,16 +4,17 @@ Populates: teams, venues, matches, season_stats, head_to_head, player_stats.
 
 All data comes from the real IPL.csv dataset (extracted by create_dataset.py).
 """
-import os
-import csv
+
 import json
+import os
 import sqlite3
-import pandas as pd
 from collections import defaultdict
 
+import pandas as pd
+
 from config import (
-    get_tournament_paths, TOURNAMENTS,
-    TEAM_ALIASES, ACTIVE_TEAMS_2026,
+    TEAM_ALIASES,
+    get_tournament_paths,
 )
 
 # Backward-compatible standings map used by legacy tests.
@@ -40,34 +41,34 @@ SEASON_STANDINGS = {
 
 # Known venues with capacity (for venue table)
 VENUE_INFO = {
-    "MA Chidambaram Stadium":            ("Chennai",    "India", 50000),
-    "Wankhede Stadium":                  ("Mumbai",     "India", 33000),
-    "M Chinnaswamy Stadium":             ("Bengaluru",  "India", 40000),
-    "Eden Gardens":                      ("Kolkata",    "India", 68000),
-    "Arun Jaitley Stadium":              ("Delhi",      "India", 41820),
-    "Feroz Shah Kotla":                  ("Delhi",      "India", 41820),
-    "Sawai Mansingh Stadium":            ("Jaipur",     "India", 30000),
+    "MA Chidambaram Stadium": ("Chennai", "India", 50000),
+    "Wankhede Stadium": ("Mumbai", "India", 33000),
+    "M Chinnaswamy Stadium": ("Bengaluru", "India", 40000),
+    "Eden Gardens": ("Kolkata", "India", 68000),
+    "Arun Jaitley Stadium": ("Delhi", "India", 41820),
+    "Feroz Shah Kotla": ("Delhi", "India", 41820),
+    "Sawai Mansingh Stadium": ("Jaipur", "India", 30000),
     "Rajiv Gandhi International Cricket Stadium": ("Hyderabad", "India", 55000),
     "Punjab Cricket Association IS Bindra Stadium": ("Mohali", "India", 26950),
-    "Punjab Cricket Association Stadium":("Mohali",     "India", 26950),
-    "Narendra Modi Stadium":             ("Ahmedabad",  "India", 132000),
-    "DY Patil Stadium":                  ("Mumbai",     "India", 55000),
-    "Brabourne Stadium":                 ("Mumbai",     "India", 20000),
-    "BRSABV Ekana Cricket Stadium":      ("Lucknow",    "India", 50000),
+    "Punjab Cricket Association Stadium": ("Mohali", "India", 26950),
+    "Narendra Modi Stadium": ("Ahmedabad", "India", 132000),
+    "DY Patil Stadium": ("Mumbai", "India", 55000),
+    "Brabourne Stadium": ("Mumbai", "India", 20000),
+    "BRSABV Ekana Cricket Stadium": ("Lucknow", "India", 50000),
     "Maharashtra Cricket Association Stadium": ("Pune", "India", 37406),
     "Himachal Pradesh Cricket Association Stadium": ("Dharamsala", "India", 23000),
     "Saurashtra Cricket Association Stadium": ("Rajkot", "India", 28000),
-    "Holkar Cricket Stadium":            ("Indore",     "India", 30000),
+    "Holkar Cricket Stadium": ("Indore", "India", 30000),
     "Dr. Y.S. Rajasekhara Reddy ACA-VDCA Cricket Stadium": ("Visakhapatnam", "India", 27000),
-    "Barabati Stadium":                  ("Cuttack",    "India", 45000),
-    "Subrata Roy Sahara Stadium":        ("Pune",       "India", 37000),
-    "Sharjah Cricket Stadium":           ("Sharjah",    "UAE",   16000),
-    "Dubai International Cricket Stadium": ("Dubai",    "UAE",   25000),
-    "Sheikh Zayed Stadium":              ("Abu Dhabi",  "UAE",   20000),
-    "Newlands":                          ("Cape Town",  "South Africa", 25000),
-    "Kingsmead":                         ("Durban",     "South Africa", 25000),
-    "New Wanderers Stadium":             ("Johannesburg","South Africa", 34000),
-    "SuperSport Park":                   ("Centurion",  "South Africa", 22000),
+    "Barabati Stadium": ("Cuttack", "India", 45000),
+    "Subrata Roy Sahara Stadium": ("Pune", "India", 37000),
+    "Sharjah Cricket Stadium": ("Sharjah", "UAE", 16000),
+    "Dubai International Cricket Stadium": ("Dubai", "UAE", 25000),
+    "Sheikh Zayed Stadium": ("Abu Dhabi", "UAE", 20000),
+    "Newlands": ("Cape Town", "South Africa", 25000),
+    "Kingsmead": ("Durban", "South Africa", 25000),
+    "New Wanderers Stadium": ("Johannesburg", "South Africa", 34000),
+    "SuperSport Park": ("Centurion", "South Africa", 22000),
 }
 
 
@@ -84,36 +85,46 @@ def ingest_teams(conn, teams_json_path: str, matches_df: pd.DataFrame, tournamen
         with open(teams_json_path) as f:
             teams = json.load(f)
         for team_id, info in teams.items():
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO teams (team_id, name, home_venue, titles, founded, active)
                 VALUES (?, ?, ?, ?, ?, 1)
-            """, (team_id, info["name"], info["home"], info["titles"], info["founded"]))
+            """,
+                (team_id, info["name"], info["home"], info["titles"], info["founded"]),
+            )
             count += 1
     else:
         # Generate mock team info from matches
         all_teams = set(matches_df["team1"]) | set(matches_df["team2"])
         for t in all_teams:
-            if not t: continue
-            conn.execute("""
+            if not t:
+                continue
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO teams (team_id, name, home_venue, titles, founded, active)
                 VALUES (?, ?, ?, ?, ?, 1)
-            """, (t, t, "TBD", 0, 1900))
+            """,
+                (t, t, "TBD", 0, 1900),
+            )
             count += 1
 
     # Add retired franchises (IPL ONLY)
     if tournament == "ipl":
         retired = [
-            ("DC_OLD", "Deccan Chargers",          "Rajiv Gandhi International Cricket Stadium", 1, 2008),
-            ("RPS",    "Rising Pune Supergiant",    "Maharashtra Cricket Association Stadium", 0, 2016),
-            ("KTK",    "Kochi Tuskers Kerala",      "Jawaharlal Nehru Stadium",  0, 2011),
-            ("PW",     "Pune Warriors",             "Maharashtra Cricket Association Stadium", 0, 2011),
-            ("GL",     "Gujarat Lions",             "Saurashtra Cricket Association Stadium", 0, 2016),
+            ("DC_OLD", "Deccan Chargers", "Rajiv Gandhi International Cricket Stadium", 1, 2008),
+            ("RPS", "Rising Pune Supergiant", "Maharashtra Cricket Association Stadium", 0, 2016),
+            ("KTK", "Kochi Tuskers Kerala", "Jawaharlal Nehru Stadium", 0, 2011),
+            ("PW", "Pune Warriors", "Maharashtra Cricket Association Stadium", 0, 2011),
+            ("GL", "Gujarat Lions", "Saurashtra Cricket Association Stadium", 0, 2016),
         ]
         for row in retired:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR IGNORE INTO teams (team_id, name, home_venue, titles, founded, active)
                 VALUES (?, ?, ?, ?, ?, 0)
-            """, row)
+            """,
+                row,
+            )
             count += 1
     conn.commit()
     print(f"Teams ingested: {count}")
@@ -123,10 +134,13 @@ def ingest_venues(conn, df: pd.DataFrame):
     """Ingest venues from both known list and matches data."""
     # Insert known venues
     for name, (city, country, capacity) in VENUE_INFO.items():
-        conn.execute("""
+        conn.execute(
+            """
             INSERT OR IGNORE INTO venues (name, city, country, capacity)
             VALUES (?, ?, ?, ?)
-        """, (name, city, country, capacity))
+        """,
+            (name, city, country, capacity),
+        )
 
     conn.commit()
     count = conn.execute("SELECT COUNT(*) FROM venues").fetchone()[0]
@@ -144,22 +158,43 @@ def ingest_matches(conn, df: pd.DataFrame):
         t2 = row["team2"]
         winner = row["winner"]
         stage = row.get("stage", "Unknown")
-        is_playoff = 1 if stage in ("Final", "Qualifier 1", "Qualifier 2",
-                                     "Eliminator", "Semi Final",
-                                     "Elimination Final") else 0
+        is_playoff = (
+            1
+            if stage
+            in (
+                "Final",
+                "Qualifier 1",
+                "Qualifier 2",
+                "Eliminator",
+                "Semi Final",
+                "Elimination Final",
+            )
+            else 0
+        )
         is_final = 1 if stage == "Final" else 0
 
-        conn.execute("""
+        conn.execute(
+            """
             INSERT OR IGNORE INTO matches
             (match_id, season, team1, team2, toss_winner, toss_decision,
              winner, win_by_runs, win_by_wickets, venue, is_playoff, is_final)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            int(row["id"]), season, t1, t2,
-            row["toss_winner"], row["toss_decision"],
-            winner, int(row["win_by_runs"]), int(row["win_by_wickets"]),
-            row["venue"], is_playoff, is_final,
-        ))
+        """,
+            (
+                int(row["id"]),
+                season,
+                t1,
+                t2,
+                row["toss_winner"],
+                row["toss_decision"],
+                winner,
+                int(row["win_by_runs"]),
+                int(row["win_by_wickets"]),
+                row["venue"],
+                is_playoff,
+                is_final,
+            ),
+        )
         season_team_matches[season][t1] += 1
         season_team_matches[season][t2] += 1
         if pd.notna(winner) and winner:
@@ -176,8 +211,14 @@ def ingest_matches(conn, df: pd.DataFrame):
             final_winner = final_row.iloc[0]["winner"]
 
         # Find playoff teams
-        playoff_stages = {"Final", "Qualifier 1", "Qualifier 2",
-                          "Eliminator", "Semi Final", "Elimination Final"}
+        playoff_stages = {
+            "Final",
+            "Qualifier 1",
+            "Qualifier 2",
+            "Eliminator",
+            "Semi Final",
+            "Elimination Final",
+        }
         playoff_matches = df[(df["season"] == season) & (df["stage"].isin(playoff_stages))]
         playoff_teams = set()
         for _, pm in playoff_matches.iterrows():
@@ -198,15 +239,25 @@ def ingest_matches(conn, df: pd.DataFrame):
             reached_final = 1 if team in final_teams else 0
             won_title = 1 if team == final_winner else 0
 
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO season_stats
                 (season, team, matches_played, wins, losses, points,
                  reached_playoff, reached_final, won_title)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                season, team, played, wins, losses, wins * 2,
-                reached_playoff, reached_final, won_title,
-            ))
+            """,
+                (
+                    season,
+                    team,
+                    played,
+                    wins,
+                    losses,
+                    wins * 2,
+                    reached_playoff,
+                    reached_final,
+                    won_title,
+                ),
+            )
 
     conn.commit()
     print(f"Matches ingested: {len(df)}")
@@ -227,10 +278,13 @@ def ingest_head_to_head(conn):
 
     for season, matches in h2h.items():
         for (ta, tb), rec in matches.items():
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO head_to_head (team_a, team_b, season, wins_a, wins_b)
                 VALUES (?, ?, ?, ?, ?)
-            """, (ta, tb, season, rec["wins_a"], rec["wins_b"]))
+            """,
+                (ta, tb, season, rec["wins_a"], rec["wins_b"]),
+            )
     conn.commit()
     print(f"Head-to-head records populated for {len(h2h)} seasons")
 
@@ -244,17 +298,26 @@ def ingest_player_stats(conn, player_stats_csv: str):
     df = pd.read_csv(player_stats_csv)
     count = 0
     for _, row in df.iterrows():
-        conn.execute("""
+        conn.execute(
+            """
             INSERT OR REPLACE INTO player_stats
             (season, player_name, team, role, batting_avg, batting_sr,
              runs_scored, wickets, bowling_avg, economy)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            int(row["season"]), row["player_name"], row["team"], row["role"],
-            float(row["batting_avg"]), float(row["batting_sr"]),
-            int(row["runs_scored"]), int(row["wickets"]),
-            float(row["bowling_avg"]), float(row["economy"]),
-        ))
+        """,
+            (
+                int(row["season"]),
+                row["player_name"],
+                row["team"],
+                row["role"],
+                float(row["batting_avg"]),
+                float(row["batting_sr"]),
+                int(row["runs_scored"]),
+                int(row["wickets"]),
+                float(row["bowling_avg"]),
+                float(row["economy"]),
+            ),
+        )
         count += 1
     conn.commit()
     print(f"Player stats ingested: {count}")
@@ -263,13 +326,18 @@ def ingest_player_stats(conn, player_stats_csv: str):
 def run_ingestion(tournament: str = "ipl"):
     paths = get_tournament_paths(tournament)
     conn = sqlite3.connect(paths["db"])
-    
+
     # Load matches DF early to pass to other functions
     df_matches = pd.read_csv(paths["matches"])
-    
+
     try:
         # Pass tournament-specific paths
-        ingest_teams(conn, os.path.join(os.path.dirname(paths["matches"]), "..", "..", "raw", "teams.json"), df_matches, tournament)
+        ingest_teams(
+            conn,
+            os.path.join(os.path.dirname(paths["matches"]), "..", "..", "raw", "teams.json"),
+            df_matches,
+            tournament,
+        )
         ingest_venues(conn, df_matches)
         ingest_matches(conn, df_matches)
         ingest_head_to_head(conn)
@@ -277,13 +345,16 @@ def run_ingestion(tournament: str = "ipl"):
         print(f"[{tournament}] All data ingested successfully into {paths['db']}")
     except Exception as e:
         print(f"Error during {tournament} ingestion: {e}")
-        import traceback; traceback.print_exc()
+        import traceback
+
+        traceback.print_exc()
     finally:
         conn.close()
 
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--tournament", default="ipl")
     args = parser.parse_args()

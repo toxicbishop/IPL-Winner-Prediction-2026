@@ -10,8 +10,8 @@ Produces:
 data/mock/ipl-2026-UTC.csv is left alone (future fixture list; Cricsheet only
 publishes played matches).
 """
+
 import json
-import os
 from glob import glob
 from pathlib import Path
 
@@ -24,13 +24,33 @@ MATCHES_CSV = ROOT / "data" / "processed" / "ipl" / "matches.csv"
 PRIORS_PATH = ROOT / "data" / "priors_2026.json"
 
 BBB_COLUMNS = [
-    "match_id", "season", "year", "date", "team1", "team2",
-    "innings", "batting_team", "bowling_team", "batter", "bowler",
-    "runs_batter", "runs_bowler", "runs_total",
-    "ball_id", "balls_faced", "valid_ball", "bowler_wicket",
-    "player_out", "match_won_by", "win_outcome",
-    "toss_winner", "toss_decision", "venue", "city",
-    "result_type", "stage",
+    "match_id",
+    "season",
+    "year",
+    "date",
+    "team1",
+    "team2",
+    "innings",
+    "batting_team",
+    "bowling_team",
+    "batter",
+    "bowler",
+    "runs_batter",
+    "runs_bowler",
+    "runs_total",
+    "ball_id",
+    "balls_faced",
+    "valid_ball",
+    "bowler_wicket",
+    "player_out",
+    "match_won_by",
+    "win_outcome",
+    "toss_winner",
+    "toss_decision",
+    "venue",
+    "city",
+    "result_type",
+    "stage",
 ]
 
 
@@ -86,35 +106,43 @@ def _parse_match(file_path: Path) -> list[dict]:
                 is_noball = bool(extras.get("noballs"))
                 player_out = wickets[0].get("player_out", "") if wickets else ""
                 wicket_kind = wickets[0].get("kind", "") if wickets else ""
-                rows.append({
-                    "match_id": match_id,
-                    "season": season,
-                    "year": year,
-                    "date": date_str,
-                    "team1": team1,
-                    "team2": team2,
-                    "innings": inn_idx,
-                    "batting_team": batting_team,
-                    "bowling_team": bowling_team,
-                    "batter": d.get("batter"),
-                    "bowler": d.get("bowler"),
-                    "runs_batter": runs.get("batter", 0),
-                    "runs_bowler": runs.get("total", 0) - legbyes - byes,
-                    "runs_total": runs.get("total", 0),
-                    "ball_id": ball_id,
-                    "balls_faced": 0 if is_wide else 1,
-                    "valid_ball": 0 if (is_wide or is_noball) else 1,
-                    "bowler_wicket": 1 if (wickets and wicket_kind not in ("run out", "retired hurt", "obstructing the field")) else 0,
-                    "player_out": player_out,
-                    "match_won_by": match_won_by,
-                    "win_outcome": win_outcome,
-                    "toss_winner": toss_winner,
-                    "toss_decision": toss_decision,
-                    "venue": venue,
-                    "city": city,
-                    "result_type": result_type,
-                    "stage": stage,
-                })
+                rows.append(
+                    {
+                        "match_id": match_id,
+                        "season": season,
+                        "year": year,
+                        "date": date_str,
+                        "team1": team1,
+                        "team2": team2,
+                        "innings": inn_idx,
+                        "batting_team": batting_team,
+                        "bowling_team": bowling_team,
+                        "batter": d.get("batter"),
+                        "bowler": d.get("bowler"),
+                        "runs_batter": runs.get("batter", 0),
+                        "runs_bowler": runs.get("total", 0) - legbyes - byes,
+                        "runs_total": runs.get("total", 0),
+                        "ball_id": ball_id,
+                        "balls_faced": 0 if is_wide else 1,
+                        "valid_ball": 0 if (is_wide or is_noball) else 1,
+                        "bowler_wicket": 1
+                        if (
+                            wickets
+                            and wicket_kind
+                            not in ("run out", "retired hurt", "obstructing the field")
+                        )
+                        else 0,
+                        "player_out": player_out,
+                        "match_won_by": match_won_by,
+                        "win_outcome": win_outcome,
+                        "toss_winner": toss_winner,
+                        "toss_decision": toss_decision,
+                        "venue": venue,
+                        "city": city,
+                        "result_type": result_type,
+                        "stage": stage,
+                    }
+                )
     return rows
 
 
@@ -136,7 +164,8 @@ def _compute_playoff_rate_3yr(matches: pd.DataFrame, seasons: tuple[int, ...]) -
     subset = matches[matches["season"].isin(seasons)]
     playoff = subset[subset["stage"] != "League"]
     teams_by_season = {
-        s: set(playoff[playoff["season"] == s]["team1"]) | set(playoff[playoff["season"] == s]["team2"])
+        s: set(playoff[playoff["season"] == s]["team1"])
+        | set(playoff[playoff["season"] == s]["team2"])
         for s in seasons
     }
     all_teams = sorted(set(matches["team1"]) | set(matches["team2"]))
@@ -161,9 +190,15 @@ def _compute_season_rank_score(matches: pd.DataFrame, season: int) -> dict[str, 
     if len(final):
         row = final.iloc[0]
         runner_up = row["team1"] if row["winner"] == row["team2"] else row["team2"]
-    third = q2[q2["winner"] != q2["team1"]]["team1"].tolist() + q2[q2["winner"] != q2["team2"]]["team2"].tolist()
+    third = (
+        q2[q2["winner"] != q2["team1"]]["team1"].tolist()
+        + q2[q2["winner"] != q2["team2"]]["team2"].tolist()
+    )
     third = [t for t in third if t not in (champion, runner_up)]
-    fourth = elim[elim["winner"] != elim["team1"]]["team1"].tolist() + elim[elim["winner"] != elim["team2"]]["team2"].tolist()
+    fourth = (
+        elim[elim["winner"] != elim["team1"]]["team1"].tolist()
+        + elim[elim["winner"] != elim["team2"]]["team2"].tolist()
+    )
     fourth = [t for t in fourth if t not in (champion, runner_up, *third)]
 
     playoff_ranked = [champion, runner_up] + third[:1] + fourth[:1]

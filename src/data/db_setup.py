@@ -2,10 +2,11 @@
 SQLite database schema creation for IPL prediction.
 Creates tables: teams, matches, venues, season_stats, head_to_head.
 """
+
 import os
 import sqlite3
 
-from config import get_tournament_paths, TOURNAMENTS, DB_DIR
+from config import get_tournament_paths
 
 CREATE_TABLES_SQL = """
 -- Teams master table
@@ -121,6 +122,7 @@ def setup_database(db_path: str):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--tournament", default="ipl")
     args = parser.parse_args()

@@ -9,10 +9,12 @@ For each team × season, computes:
 These are causal features: a team with high batting avg will tend to win.
 Unlike win-rate features (which are outcomes), these capture WHY a team is strong.
 """
+
 import sqlite3
-import pandas as pd
+from functools import cache
+
 import numpy as np
-from functools import lru_cache
+import pandas as pd
 
 from config import SQLITE_DB_PATH
 
@@ -21,8 +23,8 @@ CURRENT_DB_PATH = SQLITE_DB_PATH
 
 # IPL average batting avg and economy (for normalization)
 IPL_AVG_BATTING_AVG = 28.0
-IPL_AVG_ECONOMY     = 8.5
-IPL_AVG_SR          = 135.0
+IPL_AVG_ECONOMY = 8.5
+IPL_AVG_SR = 135.0
 
 
 def set_db_path(path: str):
@@ -31,7 +33,8 @@ def set_db_path(path: str):
         load_player_stats_cache.cache_clear()
         CURRENT_DB_PATH = path
 
-@lru_cache(maxsize=None)
+
+@cache
 def load_player_stats_cache() -> pd.DataFrame:
     """Load player stats once and cache."""
     conn = sqlite3.connect(CURRENT_DB_PATH)
@@ -53,15 +56,14 @@ def get_team_batting_strength(team: str, season: int) -> float:
     """
     df = load_player_stats_cache()
     batsmen = df[
-        (df["team"] == team) &
-        (df["season"] == season) &
-        (df["batting_avg"] > 0)
+        (df["team"] == team) & (df["season"] == season) & (df["batting_avg"] > 0)
     ].nlargest(3, "batting_avg")
 
     if len(batsmen) == 0:
         # Try previous season
-        prev = df[(df["team"] == team) & (df["season"] == season - 1) &
-                  (df["batting_avg"] > 0)].nlargest(3, "batting_avg")
+        prev = df[
+            (df["team"] == team) & (df["season"] == season - 1) & (df["batting_avg"] > 0)
+        ].nlargest(3, "batting_avg")
         if len(prev) == 0:
             return IPL_AVG_BATTING_AVG / 60.0
         avg = prev["batting_avg"].mean()
@@ -78,15 +80,13 @@ def get_team_bowling_strength(team: str, season: int) -> float:
     """
     df = load_player_stats_cache()
     bowlers = df[
-        (df["team"] == team) &
-        (df["season"] == season) &
-        (df["wickets"] > 0) &
-        (df["economy"] > 0)
+        (df["team"] == team) & (df["season"] == season) & (df["wickets"] > 0) & (df["economy"] > 0)
     ].nlargest(3, "wickets")
 
     if len(bowlers) == 0:
-        prev = df[(df["team"] == team) & (df["season"] == season - 1) &
-                  (df["wickets"] > 0)].nlargest(3, "wickets")
+        prev = df[
+            (df["team"] == team) & (df["season"] == season - 1) & (df["wickets"] > 0)
+        ].nlargest(3, "wickets")
         if len(prev) == 0:
             return (12.0 - IPL_AVG_ECONOMY) / 6.0
         econ = prev["economy"].mean()
@@ -106,10 +106,7 @@ def get_team_allrounder_strength(team: str, season: int) -> float:
     team_players = df[(df["team"] == team) & (df["season"] == season)]
     if len(team_players) == 0:
         return 0.2  # IPL average ~2 allrounders in 11
-    allrounders = team_players[
-        (team_players["batting_avg"] > 15) &
-        (team_players["wickets"] > 0)
-    ]
+    allrounders = team_players[(team_players["batting_avg"] > 15) & (team_players["wickets"] > 0)]
     return min(len(allrounders) / max(len(team_players), 1), 1.0)
 
 
@@ -124,8 +121,11 @@ def get_team_strength_features(team: str, season: int) -> dict:
     if season >= 2026:
         try:
             from src.features.player_form import team_strength_from_roster
+
             feats = team_strength_from_roster(team, season)
-            feats.setdefault("bat_bowl_balance", abs(feats["batting_strength"] - feats["bowling_strength"]))
+            feats.setdefault(
+                "bat_bowl_balance", abs(feats["batting_strength"] - feats["bowling_strength"])
+            )
             return feats
         except Exception:
             pass  # fall back to legacy path on any load/parse issue
@@ -137,5 +137,5 @@ def get_team_strength_features(team: str, season: int) -> dict:
         "batting_strength": bat,
         "bowling_strength": bowl,
         "allround_strength": allround,
-        "bat_bowl_balance": abs(bat - bowl),   # closer to 0 = balanced team
+        "bat_bowl_balance": abs(bat - bowl),  # closer to 0 = balanced team
     }

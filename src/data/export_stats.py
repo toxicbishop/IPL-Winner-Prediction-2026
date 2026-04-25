@@ -2,19 +2,22 @@
 Exports aggregated team statistics from SQLite to CSV for external analysis.
 Produces: team_stats.csv, head_to_head_matrix.csv
 """
+
 import os
 import sqlite3
-import pandas as pd
-import numpy as np
 
-from config import SQLITE_DB_PATH, PROCESSED_DIR, TEAM_STATS_CSV, ACTIVE_TEAMS_2026
+import numpy as np
+import pandas as pd
+
+from config import ACTIVE_TEAMS_2026, PROCESSED_DIR, SQLITE_DB_PATH, TEAM_STATS_CSV
 
 
 def export_team_stats():
     conn = sqlite3.connect(SQLITE_DB_PATH)
 
     # Aggregate season stats per team
-    df = pd.read_sql_query("""
+    df = pd.read_sql_query(
+        """
         SELECT
             team,
             COUNT(*) AS seasons,
@@ -28,7 +31,9 @@ def export_team_stats():
         FROM season_stats
         GROUP BY team
         ORDER BY overall_wr DESC
-    """, conn)
+    """,
+        conn,
+    )
     conn.close()
 
     # Filter active teams only
@@ -43,9 +48,12 @@ def export_team_stats():
 
 def export_h2h_matrix():
     conn = sqlite3.connect(SQLITE_DB_PATH)
-    df = pd.read_sql_query("""
+    df = pd.read_sql_query(
+        """
         SELECT team1, team2, winner FROM matches
-    """, conn)
+    """,
+        conn,
+    )
     conn.close()
 
     teams = sorted(ACTIVE_TEAMS_2026)

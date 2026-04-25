@@ -4,12 +4,12 @@ Provides roster-aware team strength by aggregating individual player metrics
 (batting average, strike rate, bowling economy, bowling strike rate) across a
 team's projected XI, with recency weighting (recent seasons count more).
 """
+
 from __future__ import annotations
 
 import json
 import os
 from functools import lru_cache
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -35,14 +35,22 @@ def _load_bbb() -> pd.DataFrame:
         BBB_CSV,
         low_memory=False,
         usecols=[
-            "match_id", "season", "innings", "batter", "bowler",
-            "runs_batter", "runs_bowler", "valid_ball", "balls_faced",
-            "bowler_wicket", "player_out",
+            "match_id",
+            "season",
+            "innings",
+            "batter",
+            "bowler",
+            "runs_batter",
+            "runs_bowler",
+            "valid_ball",
+            "balls_faced",
+            "bowler_wicket",
+            "player_out",
         ],
     )
-    df["season_y"] = pd.to_numeric(
-        df["season"].astype(str).str[-4:], errors="coerce"
-    ).astype("Int64")
+    df["season_y"] = pd.to_numeric(df["season"].astype(str).str[-4:], errors="coerce").astype(
+        "Int64"
+    )
     return df
 
 
@@ -63,7 +71,8 @@ def _batting_table() -> pd.DataFrame:
     balls = df.groupby(["season_y", "batter"])["balls_faced"].sum()
     outs = (
         df[df["player_out"].notna() & (df["player_out"] != "")]
-        .groupby(["season_y", "player_out"]).size()
+        .groupby(["season_y", "player_out"])
+        .size()
     )
     tbl = pd.concat([runs, balls, outs.rename("outs")], axis=1).fillna(0)
     tbl.index.names = ["season_y", "player"]
@@ -85,8 +94,7 @@ def _bowling_table() -> pd.DataFrame:
 def get_player_batting(player: str, ref_year: int, lookback: int = 3) -> dict:
     tbl = _batting_table()
     rows = tbl[
-        (tbl["player"] == player)
-        & (tbl["season_y"].between(ref_year - lookback, ref_year - 1))
+        (tbl["player"] == player) & (tbl["season_y"].between(ref_year - lookback, ref_year - 1))
     ]
     if rows.empty:
         return {"bat_avg": LEAGUE_BAT_AVG, "bat_sr": LEAGUE_BAT_SR, "innings_proxy": 0}
@@ -105,8 +113,7 @@ def get_player_batting(player: str, ref_year: int, lookback: int = 3) -> dict:
 def get_player_bowling(player: str, ref_year: int, lookback: int = 3) -> dict:
     tbl = _bowling_table()
     rows = tbl[
-        (tbl["player"] == player)
-        & (tbl["season_y"].between(ref_year - lookback, ref_year - 1))
+        (tbl["player"] == player) & (tbl["season_y"].between(ref_year - lookback, ref_year - 1))
     ]
     if rows.empty:
         return {"economy": LEAGUE_ECONOMY, "bowl_sr": LEAGUE_BOWL_SR, "wickets": 0}
