@@ -16,9 +16,7 @@ import json
 import os
 import random
 
-import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 from config import (
     TEAMS,
@@ -32,7 +30,6 @@ from src.features.engineer import (
     get_recent_titles,
     get_venue_win_rate,
     is_home_ground,
-    get_win_streak,
 )
 from src.features.team_strength import get_team_strength_features
 from src.features.venue_features import (
@@ -75,7 +72,9 @@ def build_matchup_features(
     Averages over toss outcomes, toss decisions, and multiple venues.
     """
     overall_rates = get_all_time_win_rates(df)
-    venues = PREDICTION_VENUES_IPL if tournament == "ipl" else df["venue"].dropna().unique()[:5].tolist()
+    venues = (
+        PREDICTION_VENUES_IPL if tournament == "ipl" else df["venue"].dropna().unique()[:5].tolist()
+    )
 
     features_list = []
     for toss_t1 in [1, 0]:
@@ -112,6 +111,12 @@ def build_matchup_features(
                 t1_str = get_team_strength_features(team1, 2026)
                 t2_str = get_team_strength_features(team2, 2026)
 
+                t1_last10 = get_recent_form(df, team1, len(df), 10)
+                t2_last10 = get_recent_form(df, team2, len(df), 10)
+
+                t1_nrr = 0.0  # Neutral for prediction (no past NRR in 2026)
+                t2_nrr = 0.0
+
                 f = {
                     "toss_won_by_team1": toss_t1,
                     "toss_decision_bat": toss_bat,
@@ -124,6 +129,12 @@ def build_matchup_features(
                     "t1_recent_form": t1_form,
                     "t2_recent_form": t2_form,
                     "form_diff": t1_form - t2_form,
+                    "t1_last10_form": t1_last10,
+                    "t2_last10_form": t2_last10,
+                    "last10_form_diff": t1_last10 - t2_last10,
+                    "t1_recent_nrr": t1_nrr,
+                    "t2_recent_nrr": t2_nrr,
+                    "nrr_diff": t1_nrr - t2_nrr,
                     "t1_season_form": t1_season,
                     "t2_season_form": t2_season,
                     "h2h_t1_wr": h2h,
@@ -144,29 +155,40 @@ def build_matchup_features(
                     "t1_bowling_str": t1_str["bowling_strength"],
                     "t2_bowling_str": t2_str["bowling_strength"],
                     "bowling_str_diff": t1_str["bowling_strength"] - t2_str["bowling_strength"],
-                    "t1_chasing": 0.5, # Neutral for prediction
-                    "t2_chasing": 0.5,
+                    "top5_bat_sr_diff": t1_str["top5_bat_sr"] - t2_str["top5_bat_sr"],
+                    "top3_bowl_econ_diff": t1_str["top3_bowl_econ"] - t2_str["top3_bowl_econ"],
+                    "top3_bat_runs_diff": t1_str.get("top3_bat_runs", 300)
+                    - t2_str.get("top3_bat_runs", 300),
+                    "death_bowl_diff": t1_str.get("death_bowl_str", 0.5)
+                    - t2_str.get("death_bowl_str", 0.5),
+                    "boundary_pct_diff": t1_str.get("boundary_pct", 55)
+                    - t2_str.get("boundary_pct", 55),
+                    "pp_bowl_diff": t1_str.get("pp_bowl_str", 0.5) - t2_str.get("pp_bowl_str", 0.5),
                     "t1_momentum": t1_form * t1_venue * t1_str["batting_strength"],
                     "t2_momentum": t2_form * t2_venue * t2_str["batting_strength"],
-                    "momentum_diff": 0,
+                    "momentum_diff": (t1_form * t1_venue * t1_str["batting_strength"])
+                    - (t2_form * t2_venue * t2_str["batting_strength"]),
                     "is_playoff": is_playoff,
-                    "win_streak_diff": 0, # Assume start of season or neutral
+                    "win_streak_diff": 0,
                     "bat_vs_bowl_diff": t1_str["batting_strength"] - t2_str["bowling_strength"],
                     "bowl_vs_bat_diff": t1_str["bowling_strength"] - t2_str["batting_strength"],
                 }
+
                 features_list.append(f)
 
     return pd.DataFrame(features_list, columns=FEATURE_COLS)
 
 
-def monte_carlo_simulation(model, df: pd.DataFrame, tournament: str = "ipl", iterations: int = 5000):
+def monte_carlo_simulation(
+    model, df: pd.DataFrame, tournament: str = "ipl", iterations: int = 5000
+):
     """
     Simulate the full tournament multiple times to find the winner distribution.
     """
     teams = ["CSK", "MI", "RCB", "KKR", "SRH", "RR", "GT", "LSG", "DC", "PBKS"]
     if tournament != "ipl":
         teams = list(set(df["team1"]) | set(df["team2"]))
-    
+
     # Pre-calculate win probabilities for every matchup to speed up simulation
     matchup_probs = {}
     print("Calculating matchup probabilities...")
@@ -178,11 +200,11 @@ def monte_carlo_simulation(model, df: pd.DataFrame, tournament: str = "ipl", ite
     # Simulation results
     win_counts = {t: 0 for t in teams}
     playoff_counts = {t: 0 for t in teams}
-    
+
     print(f"Running {iterations} Monte Carlo iterations...")
     for _ in range(iterations):
         points = {t: 0 for t in teams}
-        
+
         # Round Robin (each team plays others twice in IPL)
         for t1, t2 in itertools.combinations(teams, 2):
             # Match 1
@@ -195,43 +217,69 @@ def monte_carlo_simulation(model, df: pd.DataFrame, tournament: str = "ipl", ite
                 points[t1] += 2
             else:
                 points[t2] += 2
-        
+
         # Sort teams by points
         ranked_teams = sorted(points.items(), key=lambda x: (x[1], random.random()), reverse=True)
-        
+
         # Top 4 reach playoffs
         for i in range(4):
             playoff_counts[ranked_teams[i][0]] += 1
-            
+
         # Simplification: Winner is the one who finished 1st (or simulate playoffs)
         # For IPL, let's simulate a basic playoff between top 4
         top4 = [t for t, p in ranked_teams[:4]]
         # Qualifier 1: 1 vs 2
-        q1_winner = top4[0] if random.random() < matchup_probs.get((top4[0], top4[1]), matchup_probs.get((top4[1], top4[0]), 0.5)) else top4[1]
+        q1_winner = (
+            top4[0]
+            if random.random()
+            < matchup_probs.get((top4[0], top4[1]), matchup_probs.get((top4[1], top4[0]), 0.5))
+            else top4[1]
+        )
         q1_loser = top4[1] if q1_winner == top4[0] else top4[0]
         # Eliminator: 3 vs 4
-        elim_winner = top4[2] if random.random() < matchup_probs.get((top4[2], top4[3]), matchup_probs.get((top4[3], top4[2]), 0.5)) else top4[3]
+        elim_winner = (
+            top4[2]
+            if random.random()
+            < matchup_probs.get((top4[2], top4[3]), matchup_probs.get((top4[3], top4[2]), 0.5))
+            else top4[3]
+        )
         # Qualifier 2: q1_loser vs elim_winner
-        q2_winner = q1_loser if random.random() < matchup_probs.get((q1_loser, elim_winner), matchup_probs.get((elim_winner, q1_loser), 0.5)) else elim_winner
+        q2_winner = (
+            q1_loser
+            if random.random()
+            < matchup_probs.get(
+                (q1_loser, elim_winner), matchup_probs.get((elim_winner, q1_loser), 0.5)
+            )
+            else elim_winner
+        )
         # Final: q1_winner vs q2_winner
-        final_winner = q1_winner if random.random() < matchup_probs.get((q1_winner, q2_winner), matchup_probs.get((q2_winner, q1_winner), 0.5)) else q2_winner
-        
+        final_winner = (
+            q1_winner
+            if random.random()
+            < matchup_probs.get(
+                (q1_winner, q2_winner), matchup_probs.get((q2_winner, q1_winner), 0.5)
+            )
+            else q2_winner
+        )
+
         win_counts[final_winner] += 1
 
     # Convert to probabilities
     final_win_probs = {t: count / iterations for t, count in win_counts.items()}
-    
+
     # Create fixtures for the dashboard (just a sample set)
     fixtures = []
     for idx, (t1, t2) in enumerate(itertools.combinations(teams, 2)):
-        fixtures.append({
-            "date": f"2026-04-{(idx % 30) + 1:02d}",
-            "team1": t1,
-            "team2": t2,
-            "predicted_winner": t1 if matchup_probs[(t1, t2)] > 0.5 else t2,
-            "t1_prob": round(matchup_probs[(t1, t2)], 2)
-        })
-        
+        fixtures.append(
+            {
+                "date": f"2026-04-{(idx % 30) + 1:02d}",
+                "team1": t1,
+                "team2": t2,
+                "predicted_winner": t1 if matchup_probs[(t1, t2)] > 0.5 else t2,
+                "t1_prob": round(matchup_probs[(t1, t2)], 2),
+            }
+        )
+
     return final_win_probs, fixtures
 
 
@@ -240,12 +288,16 @@ def bayesian_update(model_probs: dict, tournament: str = "ipl") -> dict:
         return model_probs
 
     teams = list(model_probs.keys())
+
     def normalize(d):
         total = sum(d.values())
         return {k: v / total for k, v in d.items()} if total > 0 else d
 
     sq_prior = normalize(SQUAD_STRENGTH_2026)
-    recent_form_raw = {t: PLAYOFF_RATE_3YR.get(t, 0) * 0.6 + (SEASON_2025_RANK_SCORE.get(t, 5) / 10) * 0.4 for t in teams}
+    recent_form_raw = {
+        t: PLAYOFF_RATE_3YR.get(t, 0) * 0.6 + (SEASON_2025_RANK_SCORE.get(t, 5) / 10) * 0.4
+        for t in teams
+    }
     recent_prior = normalize({t: max(v, 0.01) for t, v in recent_form_raw.items()})
     model_norm = normalize(model_probs)
 
@@ -294,6 +346,7 @@ def rank_predictions(combined_probs: dict) -> list:
 
 def predict_2026_winner(tournament: str = "ipl"):
     from src.models.ensemble_model import EnsembleModel
+
     paths = get_tournament_paths(tournament)
     matches_df = pd.read_csv(paths["features"].replace("features.csv", "matches_processed.csv"))
 
@@ -314,11 +367,22 @@ def save_predictions(rankings: list, fixtures: list, tournament: str = "ipl"):
     paths = get_tournament_paths(tournament)
     out_dir = paths["results"]
     os.makedirs(out_dir, exist_ok=True)
-    
-    with open(os.path.join(out_dir, "prediction_2026.json"), "w") as f:
-        json.dump({"season": 2026, "tournament": tournament, "method": "Stacking Ensemble + Monte Carlo", "rankings": rankings}, f, indent=2)
 
-    pd.DataFrame(fixtures).to_csv(os.path.join(out_dir, f"{tournament}_2026_match_predictions.csv"), index=False)
+    with open(os.path.join(out_dir, "prediction_2026.json"), "w") as f:
+        json.dump(
+            {
+                "season": 2026,
+                "tournament": tournament,
+                "method": "Stacking Ensemble + Monte Carlo",
+                "rankings": rankings,
+            },
+            f,
+            indent=2,
+        )
+
+    pd.DataFrame(fixtures).to_csv(
+        os.path.join(out_dir, f"{tournament}_2026_match_predictions.csv"), index=False
+    )
     print(f"Predictions saved to {out_dir}")
 
 

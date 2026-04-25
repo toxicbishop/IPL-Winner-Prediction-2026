@@ -16,21 +16,28 @@ from src.prediction.predict_2026 import build_matchup_features
 
 
 def predict_match(
-    team1: str, team2: str, tournament: str = "ipl", venue: str = None, toss_winner: str = None, toss_decision: str = "field"
+    team1: str,
+    team2: str,
+    tournament: str = "ipl",
+    venue: str = None,
+    toss_winner: str = None,
+    toss_decision: str = "field",
 ) -> dict:
     """
     Predict the winner of a single match.
     """
     from src.models.ensemble_model import EnsembleModel
+
     paths = get_tournament_paths(tournament)
 
     try:
-        model = EnsembleModel()
-        model.load(tournament=tournament)
+        model = EnsembleModel(save_dir=paths["models"])
+        model.load()
     except Exception:
         from src.models.xgboost_model import XGBoostModel
-        model = XGBoostModel()
-        model.load(tournament=tournament)
+
+        model = XGBoostModel(save_dir=paths["models"])
+        model.load()
 
     matches_df = pd.read_csv(paths["matches"].replace("matches.csv", "matches_processed.csv"))
 
@@ -49,8 +56,6 @@ def predict_match(
     probs = model.predict_proba(feats)
     t1_prob = probs[:, 1].mean()
     t2_prob = 1 - t1_prob
-
-
 
     winner = team1 if t1_prob >= 0.5 else team2
 
@@ -79,8 +84,6 @@ def print_match_result(result: dict):
 
 
 if __name__ == "__main__":
-
-
     t1 = sys.argv[1] if len(sys.argv) > 1 else "MI"
     t2 = sys.argv[2] if len(sys.argv) > 2 else "CSK"
     result = predict_match(t1, t2)
