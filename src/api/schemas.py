@@ -1,5 +1,7 @@
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel
+
 
 class WinnerProbabilityResponse(BaseModel):
     team: str
@@ -9,7 +11,7 @@ class ModelStatsResponse(BaseModel):
     model: str
     accuracy: float
     log_loss: float
-    
+
 class MatchFixtureResponse(BaseModel):
     date: str
     team1: str

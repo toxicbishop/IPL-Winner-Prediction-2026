@@ -11,7 +11,7 @@ import sys
 
 import pandas as pd
 
-from config import PROCESSED_MATCHES_CSV
+from config import TEAMS, get_tournament_paths
 from src.prediction.predict_2026 import build_matchup_features
 
 
@@ -22,7 +22,6 @@ def predict_match(
     Predict the winner of a single match.
     """
     from src.models.ensemble_model import EnsembleModel
-    from config import get_tournament_paths
     paths = get_tournament_paths(tournament)
 
     try:
@@ -51,7 +50,7 @@ def predict_match(
     t1_prob = probs[:, 1].mean()
     t2_prob = 1 - t1_prob
 
-    from config import TEAMS
+
 
     winner = team1 if t1_prob >= 0.5 else team2
 
@@ -80,7 +79,7 @@ def print_match_result(result: dict):
 
 
 if __name__ == "__main__":
-    import sys
+
 
     t1 = sys.argv[1] if len(sys.argv) > 1 else "MI"
     t2 = sys.argv[2] if len(sys.argv) > 2 else "CSK"

@@ -4,21 +4,20 @@ In a production environment, this would call external APIs (e.g., CricAPI, Rapid
 """
 
 import logging
-import requests
-from typing import List, Dict, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-def fetch_live_matches() -> List[Dict[str, Any]]:
+def fetch_live_matches() -> list[dict[str, Any]]:
     """
     Fetch live match data.
     Note: Requires an API key in production. Using stub for now.
     """
     # Example API URL (e.g., CricAPI)
     # url = "https://api.cricapi.com/v1/currentMatches?apikey=YOUR_KEY"
-    
+
     logger.info("Fetching live match data from API...")
-    
+
     # Returning a mock live match for demonstration
     return [
         {
@@ -39,7 +38,7 @@ def integrate_live_data(tournament: str = "ipl"):
     if not live_matches:
         logger.info("No live matches found.")
         return
-    
+
     for match in live_matches:
         logger.info(f"Live Match: {match['team1']} vs {match['team2']} | Status: {match['status']}")
         # In a real system, we'd update features with live score and re-predict.

@@ -11,7 +11,7 @@ import pandas as pd
 logger = logging.getLogger("ipl.api.service")
 
 # We still import from config since we will modify it later to act as an interface to the yaml files
-from config import TOURNAMENTS, OUTPUTS_DIR
+from config import OUTPUTS_DIR, TOURNAMENTS
 
 RESULTS_PATH = os.path.join(OUTPUTS_DIR, "results")
 REBUILD_SCRIPT = os.path.join("scripts", "rebuild_all.py")
@@ -82,7 +82,7 @@ def simulate_h2h(team1: str, team2: str, tournament: str) -> Any:
 def trigger_pipeline() -> dict[str, str]:
     if not os.path.exists(REBUILD_SCRIPT):
         raise FileNotFoundError("Pipeline script not found.")
-    
+
     result = subprocess.run(
         [sys.executable, REBUILD_SCRIPT, "--all"],
         capture_output=True,
@@ -94,7 +94,7 @@ def trigger_pipeline() -> dict[str, str]:
     if result.returncode != 0:
         logger.error("Pipeline failed (rc=%s): %s", result.returncode, result.stderr[-2000:])
         raise RuntimeError(f"Pipeline failed (rc={result.returncode}). See server logs.")
-    
+
     logger.info("Pipeline completed successfully.")
     return {"status": "success", "message": "Pipeline finished."}
 
