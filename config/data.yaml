@@ -18,6 +18,24 @@ teams:
   LSG: "Lucknow Super Giants"
   GT: "Gujarat Titans"
 
+icc_men_teams:
+  IND: "India"
+  PAK: "Pakistan"
+  AUS: "Australia"
+  ENG: "England"
+  RSA: "South Africa"
+  NZL: "New Zealand"
+  WI: "West Indies"
+  SL: "Sri Lanka"
+  AFG: "Afghanistan"
+  BAN: "Bangladesh"
+  IRE: "Ireland"
+  NED: "Netherlands"
+  NAM: "Namibia"
+  USA: "USA"
+  CAN: "Canada"
+  UGA: "Uganda"
+
 team_aliases:
   "Rising Pune Supergiant": "RPS"
   "Rising Pune Supergiants": "RPS"

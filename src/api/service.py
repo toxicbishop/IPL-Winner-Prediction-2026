@@ -96,3 +96,14 @@ def trigger_pipeline() -> Dict[str, str]:
     
     logger.info("Pipeline completed successfully.")
     return {"status": "success", "message": "Pipeline finished."}
+
+def get_team_logos() -> Dict[str, str]:
+    """Returns a mapping of team IDs to their logo URLs."""
+    logo_dir = "data/assets/logos"
+    logos = {}
+    if os.path.exists(logo_dir):
+        for f in os.listdir(logo_dir):
+            if f.endswith((".png", ".jpg", ".jpeg")):
+                team_id = os.path.splitext(f)[0]
+                logos[team_id] = f"/assets/logos/{f}"
+    return logos

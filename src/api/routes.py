@@ -64,3 +64,7 @@ def trigger_pipeline():
         raise HTTPException(status_code=500, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/team-logos")
+def get_team_logos():
+    return service.get_team_logos()
