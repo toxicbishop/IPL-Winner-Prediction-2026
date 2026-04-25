@@ -271,12 +271,12 @@ def build_all_matches(tournament: str = "ipl"):
 def run_ingestion():
     for tournament in TOURNAMENTS.keys():
         try:
-            print(f"🚀 Starting ingestion for: {tournament}")
+            print(f"Starting ingestion for: {tournament}")
             matches, p_stats = build_all_matches(tournament)
             save_matches_csv(matches, tournament)
             save_player_stats_csv(p_stats, tournament)
         except Exception as e:
-            print(f"❌ Failed to ingest {tournament}: {e}")
+            print(f"Failed to ingest {tournament}: {e}")
 
 if __name__ == "__main__":
     run_ingestion()

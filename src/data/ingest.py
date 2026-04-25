@@ -276,7 +276,7 @@ def run_ingestion(tournament: str = "ipl"):
         ingest_player_stats(conn, paths["player_stats"])
         print(f"[{tournament}] All data ingested successfully into {paths['db']}")
     except Exception as e:
-        print(f"❌ Error during {tournament} ingestion: {e}")
+        print(f"Error during {tournament} ingestion: {e}")
         import traceback; traceback.print_exc()
     finally:
         conn.close()

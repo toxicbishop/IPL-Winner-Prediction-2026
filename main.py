@@ -34,31 +34,31 @@ def mode_setup():
     logger.info("=== SETUP: Extracting real IPL data and building features ===")
     t0 = time.time()
 
-    from src.data.create_dataset import (
-        save_teams_json, build_all_matches, save_matches_csv, save_player_stats_csv,
-    )
+    from src.data.create_dataset import run_ingestion as run_create_dataset
     from src.data.db_setup     import setup_database
-    from src.data.ingest       import run_ingestion
+    from src.data.ingest       import run_ingestion as run_db_ingestion
     from src.data.preprocess   import run_preprocessing
     from src.features.engineer import run_feature_engineering
+    from config import TOURNAMENTS, get_tournament_paths
 
-    logger.info("Step 1/5: Extracting match data from IPL.csv...")
-    save_teams_json()
-    matches, player_stats = build_all_matches(return_format="dataframes")
-    save_matches_csv(matches)
-    save_player_stats_csv(player_stats)
+    logger.info("Step 1/5: Extracting match data from raw JSONs...")
+    run_create_dataset()
 
-    logger.info("Step 2/5: Creating SQLite database schema...")
-    setup_database()
+    for tournament in TOURNAMENTS.keys():
+        logger.info(f"--- Processing tournament: {tournament} ---")
+        paths = get_tournament_paths(tournament)
 
-    logger.info("Step 3/5: Ingesting data into SQLite...")
-    run_ingestion()
+        logger.info(f"Step 2/5: Creating SQLite database schema...")
+        setup_database(paths["db"])
 
-    logger.info("Step 4/5: Preprocessing matches...")
-    run_preprocessing()
+        logger.info(f"Step 3/5: Ingesting data into SQLite...")
+        run_db_ingestion(tournament)
 
-    logger.info("Step 5/5: Engineering features...")
-    run_feature_engineering()
+        logger.info(f"Step 4/5: Preprocessing matches...")
+        run_preprocessing(tournament)
+
+        logger.info(f"Step 5/5: Engineering features...")
+        run_feature_engineering(tournament)
 
     logger.info(f"Setup complete in {time.time()-t0:.1f}s")
 
