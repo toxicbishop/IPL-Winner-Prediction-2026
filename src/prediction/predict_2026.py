@@ -295,7 +295,7 @@ def print_predictions(rankings: list):
     print(f"{'Rank':<6} {'Team':<35} {'Win Probability':>15}")
     print("-"*65)
     for r in rankings:
-        bar = "\u2588" * int(r["win_probability"] / 2)
+        bar = "=" * int(r["win_probability"] / 2)
         print(f"  {r['rank']:<4} {r['team_name']:<35} {r['win_probability']:>6.2f}%  {bar}")
     print("="*65)
     w = rankings[0]
