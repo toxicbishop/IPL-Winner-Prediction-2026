@@ -8,6 +8,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 def fetch_live_matches() -> list[dict[str, Any]]:
     """
     Fetch live match data.
@@ -26,9 +27,10 @@ def fetch_live_matches() -> list[dict[str, Any]]:
             "team2": "MI",
             "status": "In Progress",
             "score": "150/4 (18.2)",
-            "venue": "MA Chidambaram Stadium"
+            "venue": "MA Chidambaram Stadium",
         }
     ]
+
 
 def integrate_live_data(tournament: str = "ipl"):
     """

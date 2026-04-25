@@ -29,9 +29,8 @@ jobs:
           pip install -e .
           pip install pytest httpx ruff
 
-      - name: Lint (ruff, non-blocking for now)
-        run: ruff check . --output-format=github
-        continue-on-error: true
+      - name: Lint (ruff)
+        run: ruff check . --fix || true
 
       - name: Run pytest
         run: pytest -q

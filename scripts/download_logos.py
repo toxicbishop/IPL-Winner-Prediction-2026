@@ -13,7 +13,7 @@ logos = {
     "west_indies": "https://upload.wikimedia.org/wikipedia/en/thumb/9/9b/West_Indies_Cricket_Board_Logo.svg/1200px-West_Indies_Cricket_Board_Logo.svg.png",
     "sri_lanka": "https://upload.wikimedia.org/wikipedia/en/thumb/d/d4/Flag_of_Sri_Lanka_Cricket.svg/1200px-Flag_of_Sri_Lanka_Cricket.svg.png",
     "afghanistan": "https://upload.wikimedia.org/wikipedia/en/0/01/Afghanistan_Cricket_Board_logo.jpg",
-    "bangladesh": "https://upload.wikimedia.org/wikipedia/en/thumb/3/3d/Bangladesh_Cricket_Board_Logo.svg/1200px-Bangladesh_Cricket_Board_Logo.svg.png"
+    "bangladesh": "https://upload.wikimedia.org/wikipedia/en/thumb/3/3d/Bangladesh_Cricket_Board_Logo.svg/1200px-Bangladesh_Cricket_Board_Logo.svg.png",
 }
 
 output_dir = os.path.join("data", "assets", "logos")
@@ -22,7 +22,9 @@ os.makedirs(output_dir, exist_ok=True)
 for name, url in logos.items():
     try:
         print(f"Downloading {name}...")
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
         response = requests.get(url, stream=True, timeout=10, headers=headers)
         if response.status_code == 200:
             ext = ".png" if "png" in url.lower() or "svg" in url.lower() else ".jpg"
