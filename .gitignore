@@ -44,21 +44,18 @@ outputs/models/
 outputs/results/*
 !outputs/results/.gitkeep
 
-# Node dependencies
+# Node / Frontend
 node_modules/
 **/node_modules/
-
-#Claude
-.claude/
-
-#Dashboard
-dashboard/node_modules/
-dashboard/dist/
-dashboard/.vite/
-
-# Vite / frontend build artifacts
+dist/
+**/dist/
+.vite/
 **/.vite/
 **/*.tsbuildinfo
+
+# AI Assistants
+.claude/
+.gemini/
 
 # Env (local overrides)
 .env
@@ -79,3 +76,11 @@ coverage/
 # OS / Editor extras
 Thumbs.db
 .vs/
+
+# MLflow
+mlruns/
+mlflow.db
+
+# Prefect
+.prefect/
+prefect.db
