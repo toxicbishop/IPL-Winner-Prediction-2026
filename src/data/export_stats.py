@@ -4,19 +4,19 @@ Produces: team_stats.csv, head_to_head_matrix.csv
 """
 
 import os
-import sqlite3
 
 import numpy as np
 import pandas as pd
 
-from config import ACTIVE_TEAMS_2026, PROCESSED_DIR, SQLITE_DB_PATH, TEAM_STATS_CSV
+from config import ACTIVE_TEAMS_2026, DB_ENGINE, PROCESSED_DIR, SQLITE_DB_PATH, TEAM_STATS_CSV
+from src.data.db_utils import read_query
 
 
 def export_team_stats():
-    conn = sqlite3.connect(SQLITE_DB_PATH)
+    db_path = SQLITE_DB_PATH if DB_ENGINE == "sqlite" else None
 
     # Aggregate season stats per team
-    df = pd.read_sql_query(
+    df = read_query(
         """
         SELECT
             team,
@@ -32,9 +32,8 @@ def export_team_stats():
         GROUP BY team
         ORDER BY overall_wr DESC
     """,
-        conn,
+        db_path=db_path,
     )
-    conn.close()
 
     # Filter active teams only
     df = df[df["team"].isin(ACTIVE_TEAMS_2026)].copy()
@@ -47,14 +46,13 @@ def export_team_stats():
 
 
 def export_h2h_matrix():
-    conn = sqlite3.connect(SQLITE_DB_PATH)
-    df = pd.read_sql_query(
+    db_path = SQLITE_DB_PATH if DB_ENGINE == "sqlite" else None
+    df = read_query(
         """
         SELECT team1, team2, winner FROM matches
     """,
-        conn,
+        db_path=db_path,
     )
-    conn.close()
 
     teams = sorted(ACTIVE_TEAMS_2026)
     matrix = pd.DataFrame(0.0, index=teams, columns=teams)

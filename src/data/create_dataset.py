@@ -419,6 +419,33 @@ def load_all_jsons(folder_path):
     return pd.DataFrame(all_rows)
 
 
+def save_ball_by_ball_csv(df: pd.DataFrame, tournament: str):
+    t_config = TOURNAMENTS[tournament]
+    os.makedirs(t_config["processed_dir"], exist_ok=True)
+    path = os.path.join(t_config["processed_dir"], "ball_by_ball.csv")
+    # Save a lighter version of the dataframe to save space
+    cols = [
+        "match_id",
+        "season",
+        "date",
+        "venue",
+        "innings",
+        "over",
+        "ball",
+        "batting_team",
+        "bowling_team",
+        "batter",
+        "bowler",
+        "runs_batter",
+        "runs_extras",
+        "runs_total",
+        "runs_bowler",
+        "player_out",
+    ]
+    df[cols].to_csv(path, index=False)
+    print(f"[{tournament}] Saved {len(df)} deliveries -> {path}")
+
+
 def build_all_matches(tournament: str = "ipl"):
     t_config = TOURNAMENTS[tournament]
     raw_dir = t_config["raw_dir"]
@@ -431,16 +458,17 @@ def build_all_matches(tournament: str = "ipl"):
 
     matches = extract_matches(df)
     player_stats = extract_player_stats(df)
-    return matches, player_stats
+    return matches, player_stats, df
 
 
 def run_ingestion():
     for tournament in TOURNAMENTS.keys():
         try:
             print(f"Starting ingestion for: {tournament}")
-            matches, p_stats = build_all_matches(tournament)
+            matches, p_stats, b_df = build_all_matches(tournament)
             save_matches_csv(matches, tournament)
             save_player_stats_csv(p_stats, tournament)
+            save_ball_by_ball_csv(b_df, tournament)
         except Exception as e:
             print(f"Failed to ingest {tournament}: {e}")
 

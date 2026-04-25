@@ -7,15 +7,13 @@ All data comes from the real IPL.csv dataset (extracted by create_dataset.py).
 
 import json
 import os
-import sqlite3
 from collections import defaultdict
 
 import pandas as pd
+from sqlalchemy import text
 
-from config import (
-    TEAM_ALIASES,
-    get_tournament_paths,
-)
+from config import TEAM_ALIASES, get_tournament_paths
+from src.data.db_utils import execute_upsert, get_engine
 
 # Backward-compatible standings map used by legacy tests.
 # Not used by the current ingestion pipeline logic.
@@ -85,28 +83,30 @@ def ingest_teams(conn, teams_json_path: str, matches_df: pd.DataFrame, tournamen
         with open(teams_json_path) as f:
             teams = json.load(f)
         for team_id, info in teams.items():
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO teams (team_id, name, home_venue, titles, founded, active)
-                VALUES (?, ?, ?, ?, ?, 1)
-            """,
-                (team_id, info["name"], info["home"], info["titles"], info["founded"]),
+            execute_upsert(
+                conn,
+                "teams",
+                ["team_id", "name", "home_venue", "titles", "founded", "active"],
+                (team_id, info["name"], info["home"], info["titles"], info["founded"], 1),
+                conflict_target="team_id",
             )
             count += 1
-    else:
-        # Generate mock team info from matches
-        all_teams = set(matches_df["team1"]) | set(matches_df["team2"])
-        for t in all_teams:
-            if not t:
-                continue
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO teams (team_id, name, home_venue, titles, founded, active)
-                VALUES (?, ?, ?, ?, ?, 1)
-            """,
-                (t, t, "TBD", 0, 1900),
-            )
-            count += 1
+
+    # ALWAYS ensure all teams in the matches data are present in the teams table
+    all_teams_in_matches = set(matches_df["team1"]) | set(matches_df["team2"])
+    for t in all_teams_in_matches:
+        if not t or pd.isna(t):
+            continue
+        # Use execute_upsert with ignore=True so we don't overwrite detailed info from JSON
+        execute_upsert(
+            conn,
+            "teams",
+            ["team_id", "name", "home_venue", "titles", "founded", "active"],
+            (t, t, "TBD", 0, 1900, 1),
+            conflict_target="team_id",
+            ignore=True,
+        )
+        count += 1
 
     # Add retired franchises (IPL ONLY)
     if tournament == "ipl":
@@ -118,15 +118,16 @@ def ingest_teams(conn, teams_json_path: str, matches_df: pd.DataFrame, tournamen
             ("GL", "Gujarat Lions", "Saurashtra Cricket Association Stadium", 0, 2016),
         ]
         for row in retired:
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO teams (team_id, name, home_venue, titles, founded, active)
-                VALUES (?, ?, ?, ?, ?, 0)
-            """,
-                row,
+            execute_upsert(
+                conn,
+                "teams",
+                ["team_id", "name", "home_venue", "titles", "founded", "active"],
+                row + (0,),
+                conflict_target="team_id",
+                ignore=True,
             )
             count += 1
-    conn.commit()
+    # conn.commit() removed for SQLAlchemy begin() block
     print(f"Teams ingested: {count}")
 
 
@@ -134,16 +135,17 @@ def ingest_venues(conn, df: pd.DataFrame):
     """Ingest venues from both known list and matches data."""
     # Insert known venues
     for name, (city, country, capacity) in VENUE_INFO.items():
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO venues (name, city, country, capacity)
-            VALUES (?, ?, ?, ?)
-        """,
+        execute_upsert(
+            conn,
+            "venues",
+            ["name", "city", "country", "capacity"],
             (name, city, country, capacity),
+            conflict_target="name",
+            ignore=True,
         )
 
-    conn.commit()
-    count = conn.execute("SELECT COUNT(*) FROM venues").fetchone()[0]
+    # conn.commit()
+    count = conn.execute(text("SELECT COUNT(*) FROM venues")).fetchone()[0]
     print(f"Venues ingested: {count}")
 
 
@@ -173,13 +175,23 @@ def ingest_matches(conn, df: pd.DataFrame):
         )
         is_final = 1 if stage == "Final" else 0
 
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO matches
-            (match_id, season, team1, team2, toss_winner, toss_decision,
-             winner, win_by_runs, win_by_wickets, venue, is_playoff, is_final)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
+        execute_upsert(
+            conn,
+            "matches",
+            [
+                "match_id",
+                "season",
+                "team1",
+                "team2",
+                "toss_winner",
+                "toss_decision",
+                "winner",
+                "win_by_runs",
+                "win_by_wickets",
+                "venue",
+                "is_playoff",
+                "is_final",
+            ],
             (
                 int(row["id"]),
                 season,
@@ -194,13 +206,15 @@ def ingest_matches(conn, df: pd.DataFrame):
                 is_playoff,
                 is_final,
             ),
+            conflict_target="match_id",
+            ignore=True,
         )
         season_team_matches[season][t1] += 1
         season_team_matches[season][t2] += 1
         if pd.notna(winner) and winner:
             season_team_wins[season][winner] += 1
 
-    conn.commit()
+    # conn.commit()
 
     # Populate season_stats from actual match data
     for season in sorted(season_team_matches.keys()):
@@ -239,13 +253,20 @@ def ingest_matches(conn, df: pd.DataFrame):
             reached_final = 1 if team in final_teams else 0
             won_title = 1 if team == final_winner else 0
 
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO season_stats
-                (season, team, matches_played, wins, losses, points,
-                 reached_playoff, reached_final, won_title)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
+            execute_upsert(
+                conn,
+                "season_stats",
+                [
+                    "season",
+                    "team",
+                    "matches_played",
+                    "wins",
+                    "losses",
+                    "points",
+                    "reached_playoff",
+                    "reached_final",
+                    "won_title",
+                ],
                 (
                     season,
                     team,
@@ -257,19 +278,22 @@ def ingest_matches(conn, df: pd.DataFrame):
                     reached_final,
                     won_title,
                 ),
+                conflict_target="season, team",
             )
 
-    conn.commit()
+    # conn.commit()
     print(f"Matches ingested: {len(df)}")
     print(f"Season stats populated for {len(season_team_matches)} seasons")
 
 
 def ingest_head_to_head(conn):
-    cursor = conn.execute("""
+    res = conn.execute(
+        text("""
         SELECT season, team1, team2, winner FROM matches ORDER BY season
     """)
+    )
     h2h = defaultdict(lambda: defaultdict(lambda: {"wins_a": 0, "wins_b": 0}))
-    for season, t1, t2, winner in cursor.fetchall():
+    for season, t1, t2, winner in res.fetchall():
         key = (min(t1, t2), max(t1, t2))
         if winner == key[0]:
             h2h[season][key]["wins_a"] += 1
@@ -278,14 +302,14 @@ def ingest_head_to_head(conn):
 
     for season, matches in h2h.items():
         for (ta, tb), rec in matches.items():
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO head_to_head (team_a, team_b, season, wins_a, wins_b)
-                VALUES (?, ?, ?, ?, ?)
-            """,
+            execute_upsert(
+                conn,
+                "head_to_head",
+                ["team_a", "team_b", "season", "wins_a", "wins_b"],
                 (ta, tb, season, rec["wins_a"], rec["wins_b"]),
+                conflict_target="team_a, team_b, season",
             )
-    conn.commit()
+    # conn.commit()
     print(f"Head-to-head records populated for {len(h2h)} seasons")
 
 
@@ -298,13 +322,21 @@ def ingest_player_stats(conn, player_stats_csv: str):
     df = pd.read_csv(player_stats_csv)
     count = 0
     for _, row in df.iterrows():
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO player_stats
-            (season, player_name, team, role, batting_avg, batting_sr,
-             runs_scored, wickets, bowling_avg, economy)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
+        execute_upsert(
+            conn,
+            "player_stats",
+            [
+                "season",
+                "player_name",
+                "team",
+                "role",
+                "batting_avg",
+                "batting_sr",
+                "runs_scored",
+                "wickets",
+                "bowling_avg",
+                "economy",
+            ],
             (
                 int(row["season"]),
                 row["player_name"],
@@ -317,39 +349,39 @@ def ingest_player_stats(conn, player_stats_csv: str):
                 float(row["bowling_avg"]),
                 float(row["economy"]),
             ),
+            conflict_target="season, player_name",
         )
         count += 1
-    conn.commit()
+    # conn.commit()
     print(f"Player stats ingested: {count}")
 
 
 def run_ingestion(tournament: str = "ipl"):
     paths = get_tournament_paths(tournament)
-    conn = sqlite3.connect(paths["db"])
+    engine = get_engine(paths["db"])
 
     # Load matches DF early to pass to other functions
     df_matches = pd.read_csv(paths["matches"])
 
-    try:
-        # Pass tournament-specific paths
-        ingest_teams(
-            conn,
-            os.path.join(os.path.dirname(paths["matches"]), "..", "..", "raw", "teams.json"),
-            df_matches,
-            tournament,
-        )
-        ingest_venues(conn, df_matches)
-        ingest_matches(conn, df_matches)
-        ingest_head_to_head(conn)
-        ingest_player_stats(conn, paths["player_stats"])
-        print(f"[{tournament}] All data ingested successfully into {paths['db']}")
-    except Exception as e:
-        print(f"Error during {tournament} ingestion: {e}")
-        import traceback
+    with engine.begin() as conn:
+        try:
+            # Pass tournament-specific paths
+            ingest_teams(
+                conn,
+                os.path.join(os.path.dirname(paths["matches"]), "..", "..", "raw", "teams.json"),
+                df_matches,
+                tournament,
+            )
+            ingest_venues(conn, df_matches)
+            ingest_matches(conn, df_matches)
+            ingest_head_to_head(conn)
+            ingest_player_stats(conn, paths["player_stats"])
+            print(f"[{tournament}] All data ingested successfully into {paths['db']}")
+        except Exception as e:
+            print(f"Error during {tournament} ingestion: {e}")
+            import traceback
 
-        traceback.print_exc()
-    finally:
-        conn.close()
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
