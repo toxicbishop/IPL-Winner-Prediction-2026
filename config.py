@@ -1,53 +1,52 @@
 """
-Central configuration for the IPL 2026 Winner Prediction project.
+Centralized configuration loader for IPL 2026 Winner Prediction.
+Loads from config/*.yaml and maintains backward compatibility.
 """
 
 import os
+import yaml
 
-# ─── Paths ───────────────────────────────────────────────────────────────────
+# --- Path Resolution ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+CONFIG_DIR = os.path.join(BASE_DIR, "config")
+
+def load_yaml(filename):
+    path = os.path.join(CONFIG_DIR, filename)
+    if not os.path.exists(path):
+        # Fallback if running from root
+        path = os.path.join(BASE_DIR, "config", filename)
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+# Load YAML configs
+base_cfg = load_yaml("base.yaml")
+model_cfg = load_yaml("model.yaml")
+data_cfg = load_yaml("data.yaml")
+
+# --- Export Paths (Backward Compatibility) ---
+DATA_DIR = os.path.join(BASE_DIR, base_cfg["paths"]["data_dir"])
 RAW_DIR = os.path.join(DATA_DIR, "raw")
 PROCESSED_DIR = os.path.join(DATA_DIR, "processed")
 DB_DIR = os.path.join(DATA_DIR, "db")
-OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
+OUTPUTS_DIR = os.path.join(BASE_DIR, base_cfg["paths"]["outputs_dir"])
 MODELS_DIR = os.path.join(OUTPUTS_DIR, "models")
 RESULTS_DIR = os.path.join(OUTPUTS_DIR, "results")
 
-# Tournament Directories
-TOURNAMENTS = {
-    "ipl": {
-        "raw_dir": os.path.join(DATA_DIR, "raw_datasets", "ipl"),
-        "processed_dir": os.path.join(PROCESSED_DIR, "ipl"),
-        "results_dir": os.path.join(RESULTS_DIR, "ipl"),
-        "models_dir": os.path.join(MODELS_DIR, "ipl"),
-        "db_name": "ipl.db",
-    },
-    "icc_men": {
-        "raw_dir": os.path.join(DATA_DIR, "raw_datasets", "icc_men"),
-        "processed_dir": os.path.join(PROCESSED_DIR, "icc_men"),
-        "results_dir": os.path.join(RESULTS_DIR, "icc_men"),
-        "models_dir": os.path.join(MODELS_DIR, "icc_men"),
-        "db_name": "icc_men.db",
-    },
-    "icc_women": {
-        "raw_dir": os.path.join(DATA_DIR, "raw_datasets", "icc_women"),
-        "processed_dir": os.path.join(PROCESSED_DIR, "icc_women"),
-        "results_dir": os.path.join(RESULTS_DIR, "icc_women"),
-        "models_dir": os.path.join(MODELS_DIR, "icc_women"),
-        "db_name": "icc_women.db",
-    },
-}
-
+# --- Tournament Directories ---
+TOURNAMENTS = {}
+for name, info in data_cfg["tournaments"].items():
+    TOURNAMENTS[name] = {
+        "raw_dir": os.path.join(DATA_DIR, "raw_datasets", name),
+        "processed_dir": os.path.join(PROCESSED_DIR, name),
+        "results_dir": os.path.join(RESULTS_DIR, name),
+        "models_dir": os.path.join(MODELS_DIR, name),
+        "db_name": info["db_name"],
+    }
 
 def get_tournament_paths(tournament: str):
     if tournament not in TOURNAMENTS:
-        raise ValueError(
-            f"Invalid tournament: {tournament}. Must be one of {list(TOURNAMENTS.keys())}"
-        )
+        raise ValueError(f"Invalid tournament: {tournament}")
     t = TOURNAMENTS[tournament]
-
-    # Return derived paths
     return {
         "matches": os.path.join(t["processed_dir"], "matches.csv"),
         "player_stats": os.path.join(t["processed_dir"], "player_stats.csv"),
@@ -58,124 +57,32 @@ def get_tournament_paths(tournament: str):
         "models": t["models_dir"],
     }
 
-
-# ─── Database ────────────────────────────────────────────────────────────────
-SQLITE_DB_PATH = os.path.join(DB_DIR, "ipl.db")
-
-# ─── Data files ──────────────────────────────────────────────────────────────
-MATCHES_CSV = os.path.join(RAW_DIR, "matches.csv")
-PLAYER_STATS_CSV = os.path.join(RAW_DIR, "player_stats.csv")
-TEAMS_JSON = os.path.join(RAW_DIR, "teams.json")
-
-PROCESSED_MATCHES_CSV = os.path.join(PROCESSED_DIR, "matches_processed.csv")
-FEATURES_CSV = os.path.join(PROCESSED_DIR, "features.csv")
-TEAM_STATS_CSV = os.path.join(PROCESSED_DIR, "team_stats.csv")
-
-# ─── IPL Teams ────────────────────────────────────────────────────────────────
-TEAMS = {
-    "CSK": "Chennai Super Kings",
-    "MI": "Mumbai Indians",
-    "RCB": "Royal Challengers Bengaluru",
-    "KKR": "Kolkata Knight Riders",
-    "DC": "Delhi Capitals",
-    "PBKS": "Punjab Kings",
-    "RR": "Rajasthan Royals",
-    "SRH": "Sunrisers Hyderabad",
-    "LSG": "Lucknow Super Giants",
-    "GT": "Gujarat Titans",
-}
-
-# Historical team name aliases (teams renamed over the years)
-TEAM_ALIASES = {
-    "Rising Pune Supergiant": "RPS",
-    "Rising Pune Supergiants": "RPS",
-    "Pune Warriors": "PW",
-    "Kochi Tuskers Kerala": "KTK",
-    "Deccan Chargers": "DC_OLD",
-    "Delhi Daredevils": "DC",
-    "Kings XI Punjab": "PBKS",
-    "Royal Challengers Bangalore": "RCB",
-    "Royal Challengers Bengaluru": "RCB",
-    "Chennai Super Kings": "CSK",
-    "Mumbai Indians": "MI",
-    "Kolkata Knight Riders": "KKR",
-    "Rajasthan Royals": "RR",
-    "Sunrisers Hyderabad": "SRH",
-    "Delhi Capitals": "DC",
-    "Punjab Kings": "PBKS",
-    "Lucknow Super Giants": "LSG",
-    "Gujarat Titans": "GT",
-    "Gujarat Lions": "GL",
-}
-
-# Retired franchise aliases -> map to spiritual successor for ML continuity
-RETIRED_TEAM_MAP = {
-    "DC_OLD": "SRH",  # Deccan Chargers -> Sunrisers Hyderabad (same city)
-    "RPS": "CSK",  # Rising Pune Supergiant -> CSK returned after ban
-    "GL": "GT",  # Gujarat Lions -> Gujarat Titans (same city)
-    "PW": "DC",  # Pune Warriors -> dropped, no direct successor
-    "KTK": "KTK",  # Kochi Tuskers -> dropped
-}
-
-# Active teams in 2026 (current franchises)
+# --- Data/Team Configs ---
+TEAMS = data_cfg["teams"]
+TEAM_ALIASES = data_cfg["team_aliases"]
+RETIRED_TEAM_MAP = data_cfg["retired_team_map"]
 ACTIVE_TEAMS_2026 = list(TEAMS.keys())
 
-# ─── Seasons ─────────────────────────────────────────────────────────────────
-FIRST_SEASON = 2008
-LAST_KNOWN_SEASON = 2025
-PREDICT_SEASON = 2026
+# --- Seasons ---
+FIRST_SEASON = data_cfg["seasons"]["first"]
+LAST_KNOWN_SEASON = data_cfg["seasons"]["last_known"]
+PREDICT_SEASON = data_cfg["seasons"]["predict"]
 
-# ─── Feature Engineering ─────────────────────────────────────────────────────
-FORM_WINDOW = 10  # last N matches for recent form
-HOME_ADVANTAGE = True
-TOSS_FEATURES = True
-VENUE_FEATURES = True
-H2H_WINDOW_SEASONS = 5  # head-to-head over last N seasons
+# --- Feature Engineering ---
+FE_CFG = data_cfg["feature_engineering"]
+FORM_WINDOW = FE_CFG["form_window"]
+HOME_ADVANTAGE = FE_CFG["home_advantage"]
+TOSS_FEATURES = FE_CFG["toss_features"]
+VENUE_FEATURES = FE_CFG["venue_features"]
+H2H_WINDOW_SEASONS = FE_CFG["h2h_window_seasons"]
 
-# ─── Model ────────────────────────────────────────────────────────────────────
-RANDOM_STATE = 42
-TEST_SIZE = 0.1
-CV_FOLDS = 5
+# --- Model Params ---
+TRAIN_CFG = model_cfg["training"]
+RANDOM_STATE = TRAIN_CFG["random_state"]
+TEST_SIZE = TRAIN_CFG["test_size"]
+CV_FOLDS = TRAIN_CFG["cv_folds"]
+MODEL_PARAMS = model_cfg["model_params"]
 
-MODEL_PARAMS = {
-    "random_forest": {
-        "n_estimators": 500,
-        "max_depth": 10,
-        "min_samples_split": 5,
-        "min_samples_leaf": 2,
-        "random_state": RANDOM_STATE,
-        "n_jobs": -1,
-    },
-    "xgboost": {
-        "n_estimators": 500,
-        "max_depth": 8,
-        "learning_rate": 0.01,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
-        "use_label_encoder": False,
-        "eval_metric": "logloss",
-        "random_state": RANDOM_STATE,
-    },
-    "lightgbm": {
-        "n_estimators": 500,
-        "max_depth": 8,
-        "learning_rate": 0.01,
-        "num_leaves": 50,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
-        "random_state": RANDOM_STATE,
-        "verbose": -1,
-    },
-    "neural_network": {
-        "hidden_layer_sizes": (512, 256, 128),
-        "activation": "relu",
-        "solver": "adam",
-        "alpha": 1e-3,
-        "max_iter": 500,
-        "random_state": RANDOM_STATE,
-    },
-}
-
-# ─── Logging ──────────────────────────────────────────────────────────────────
-LOG_LEVEL = "INFO"
-LOG_FILE = os.path.join(BASE_DIR, "ipl_prediction.log")
+# --- Logging ---
+LOG_LEVEL = base_cfg["logging"]["level"]
+LOG_FILE = os.path.join(BASE_DIR, base_cfg["logging"]["file"])

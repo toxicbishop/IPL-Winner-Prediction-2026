@@ -1,12 +1,14 @@
 """
-Model training orchestrator.
-Trains all individual models + ensemble, saves metrics to JSON.
+Model training orchestrator with MLflow tracking.
+Trains all individual models + ensemble, saves metrics to JSON and MLflow.
 """
 
 import json
 import os
-
+import logging
 import pandas as pd
+import mlflow
+import mlflow.sklearn
 from sklearn.model_selection import train_test_split
 
 from config import RANDOM_STATE, TEST_SIZE, get_tournament_paths
@@ -19,6 +21,10 @@ from src.models.random_forest_model import RandomForestModel
 from src.models.tune import load_best_params
 from src.models.xgboost_model import XGBoostModel
 
+logger = logging.getLogger(__name__)
+
+# Set MLflow experiment
+mlflow.set_experiment("IPL_2026_Winner_Prediction")
 
 def load_features(features_path: str) -> pd.DataFrame:
     if not os.path.exists(features_path):
@@ -27,9 +33,7 @@ def load_features(features_path: str) -> pd.DataFrame:
         )
     return pd.read_csv(features_path)
 
-
 def _apply_tuned_params(model, best_params: dict):
-    """Override model hyperparameters with Optuna-tuned values if available."""
     name_map = {
         "random_forest": None,
         "xgboost": "xgboost",
@@ -45,8 +49,7 @@ def _apply_tuned_params(model, best_params: dict):
                 setattr(model.model, attr, val)
         print(f"  Applied {len(params)} tuned params to {model.name}")
 
-
-def train_all(df: pd.DataFrame, models_dir: str) -> dict:
+def train_all(df: pd.DataFrame, models_dir: str, tournament: str) -> dict:
     results = {}
 
     df_train, df_test = train_test_split(
@@ -54,9 +57,7 @@ def train_all(df: pd.DataFrame, models_dir: str) -> dict:
     )
 
     best_params = load_best_params()
-    if best_params:
-        print(f"Loaded Optuna-tuned params for: {list(best_params.keys())}")
-
+    
     individual_models = [
         RandomForestModel(save_dir=models_dir),
         XGBoostModel(save_dir=models_dir),
@@ -66,99 +67,71 @@ def train_all(df: pd.DataFrame, models_dir: str) -> dict:
     ]
 
     for model in individual_models:
-        print(f"\n{'=' * 50}")
-        print(f"Training: {model.name.upper()}")
-        print(f"{'=' * 50}")
+        with mlflow.start_run(run_name=f"{tournament}_{model.name}"):
+            print(f"\nTraining: {model.name.upper()}")
+            
+            if best_params:
+                _apply_tuned_params(model, best_params)
 
-        if best_params:
-            _apply_tuned_params(model, best_params)
+            cv = model.cross_validate(df_train)
+            model.train(df_train)
+            train_metrics = model.evaluate(df_train)
+            test_metrics = model.evaluate(df_test)
 
-        cv = model.cross_validate(df_train)
-        print(f"  CV accuracy: {cv['cv_mean']:.4f} ± {cv['cv_std']:.4f}")
+            # Log metrics to MLflow
+            mlflow.log_param("tournament", tournament)
+            mlflow.log_param("model_type", model.name)
+            mlflow.log_metric("cv_accuracy", cv["cv_mean"])
+            mlflow.log_metric("train_accuracy", train_metrics["accuracy"])
+            mlflow.log_metric("test_accuracy", test_metrics["accuracy"])
+            if "roc_auc" in test_metrics:
+                mlflow.log_metric("test_roc_auc", test_metrics["roc_auc"])
 
-        model.train(df_train)
-        train_metrics = model.evaluate(df_train)
-        test_metrics = model.evaluate(df_test)
+            # Log model
+            mlflow.sklearn.log_model(model.model, f"model_{model.name}")
 
-        print(f"  Train acc: {train_metrics['accuracy']:.4f}")
-        print(f"  Test  acc: {test_metrics['accuracy']:.4f}")
-        if "roc_auc" in test_metrics:
-            print(f"  Test AUC : {test_metrics['roc_auc']:.4f}")
-        print(test_metrics["report"])
+            model.save()
+            results[model.name] = {
+                "cv_accuracy": cv["cv_mean"],
+                "cv_std": cv["cv_std"],
+                "train_accuracy": train_metrics["accuracy"],
+                "test_accuracy": test_metrics["accuracy"],
+            }
+            if "roc_auc" in test_metrics:
+                results[model.name]["test_roc_auc"] = test_metrics["roc_auc"]
 
-        fi = model.feature_importance()
-        if fi is not None:
-            print("  Top 5 features:")
-            print(fi.head().to_string())
+    # Ensemble
+    with mlflow.start_run(run_name=f"{tournament}_ensemble"):
+        ensemble = EnsembleModel(save_dir=models_dir)
+        ensemble.train(df_train)
+        ens_test = ensemble.evaluate(df_test)
+        ensemble.save()
+        
+        mlflow.log_param("tournament", tournament)
+        mlflow.log_metric("test_accuracy", ens_test["accuracy"])
+        if "roc_auc" in ens_test:
+            mlflow.log_metric("test_roc_auc", ens_test["roc_auc"])
 
-        model.save()
-
-        results[model.name] = {
-            "cv_accuracy": cv["cv_mean"],
-            "cv_std": cv["cv_std"],
-            "train_accuracy": train_metrics["accuracy"],
-            "test_accuracy": test_metrics["accuracy"],
+        results["ensemble"] = {
+            "train_accuracy": ensemble.evaluate(df_train)["accuracy"],
+            "test_accuracy": ens_test["accuracy"],
+            "test_roc_auc": ens_test.get("roc_auc", None),
         }
-        if "roc_auc" in test_metrics:
-            results[model.name]["test_roc_auc"] = test_metrics["roc_auc"]
-
-    # ── Ensemble ─────────────────────────────────────────────────────────────
-    print(f"\n{'=' * 50}")
-    print("Training: STACKING ENSEMBLE")
-    print(f"{'=' * 50}")
-
-    ensemble = EnsembleModel(save_dir=models_dir)
-    ensemble.train(df_train)
-    ens_test = ensemble.evaluate(df_test)
-    print(f"  Ensemble test accuracy: {ens_test['accuracy']:.4f}")
-    print(f"  Ensemble test AUC:      {ens_test.get('roc_auc', 'N/A')}")
-    print(ens_test["report"])
-    ensemble.save()
-
-    results["ensemble"] = {
-        "train_accuracy": ensemble.evaluate(df_train)["accuracy"],
-        "test_accuracy": ens_test["accuracy"],
-        "test_roc_auc": ens_test.get("roc_auc", None),
-    }
 
     return results
-
 
 def save_results(results: dict, results_dir: str):
     os.makedirs(results_dir, exist_ok=True)
     path = os.path.join(results_dir, "model_results.json")
     with open(path, "w") as f:
         json.dump(results, f, indent=2)
-    print(f"\nResults saved: {path}")
-
-    # Print comparison table
-    print("\n" + "=" * 65)
-    print(f"{'Model':<20} {'CV Acc':>8} {'Train':>8} {'Test':>8} {'AUC':>8}")
-    print("-" * 65)
-    for name, m in results.items():
-        cv = f"{m.get('cv_accuracy', 0):.4f}" if m.get("cv_accuracy") else "  N/A "
-        tr = f"{m['train_accuracy']:.4f}"
-        te = f"{m['test_accuracy']:.4f}"
-        auc = f"{m['test_roc_auc']:.4f}" if m.get("test_roc_auc") else "  N/A "
-        print(f"{name:<20} {cv:>8} {tr:>8} {te:>8} {auc:>8}")
-    print("=" * 65)
-
 
 def run_training(tournament: str = "ipl"):
     paths = get_tournament_paths(tournament)
-    print(f"Loading feature dataset for {tournament}...")
     df = load_features(paths["features"])
-    print(f"Dataset: {len(df)} matches × {len(FEATURE_COLS)} features")
-
-    results = train_all(df, paths["models"])
+    results = train_all(df, paths["models"], tournament)
     save_results(results, paths["results"])
     return results
 
-
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--tournament", default="ipl")
-    args = parser.parse_args()
-    run_training(args.tournament)
+    run_training()

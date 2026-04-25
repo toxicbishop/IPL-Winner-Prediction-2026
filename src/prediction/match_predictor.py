@@ -16,33 +16,24 @@ from src.prediction.predict_2026 import build_matchup_features
 
 
 def predict_match(
-    team1: str, team2: str, venue: str = None, toss_winner: str = None, toss_decision: str = "field"
+    team1: str, team2: str, tournament: str = "ipl", venue: str = None, toss_winner: str = None, toss_decision: str = "field"
 ) -> dict:
     """
     Predict the winner of a single match.
-
-    Args:
-        team1: Team abbreviation (e.g. 'MI')
-        team2: Team abbreviation (e.g. 'CSK')
-        venue: Optional venue name (defaults to neutral venue)
-        toss_winner: Optional toss winner (defaults to team1)
-        toss_decision: 'bat' or 'field' (default: 'field')
-
-    Returns:
-        dict with team1_win_prob, team2_win_prob, predicted_winner
     """
     from src.models.ensemble_model import EnsembleModel
+    from config import get_tournament_paths
+    paths = get_tournament_paths(tournament)
 
     try:
         model = EnsembleModel()
-        model.load()
-    except FileNotFoundError:
+        model.load(tournament=tournament)
+    except Exception:
         from src.models.xgboost_model import XGBoostModel
-
         model = XGBoostModel()
-        model.load()
+        model.load(tournament=tournament)
 
-    matches_df = pd.read_csv(PROCESSED_MATCHES_CSV)
+    matches_df = pd.read_csv(paths["matches"].replace("matches.csv", "matches_processed.csv"))
 
     # Build features
     feats = build_matchup_features(team1, team2, matches_df)
