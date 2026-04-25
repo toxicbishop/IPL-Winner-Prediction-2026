@@ -12,7 +12,7 @@ import pandas as pd
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from config import FEATURES_CSV, RESULTS_DIR
+from config import RESULTS_DIR, get_tournament_paths
 from src.models.base_model import FEATURE_COLS
 
 
@@ -114,5 +114,6 @@ def run_shap_analysis(df: pd.DataFrame):
 
 
 if __name__ == "__main__":
-    df = pd.read_csv(FEATURES_CSV)
+    paths = get_tournament_paths("ipl")
+    df = pd.read_csv(paths["features"])
     run_shap_analysis(df)

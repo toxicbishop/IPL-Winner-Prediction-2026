@@ -156,6 +156,23 @@ def get_season_form(matches: pd.DataFrame, team: str, season: int, before_idx: i
     return wins / len(team_matches)
 
 
+def get_win_streak(matches: pd.DataFrame, team: str, before_idx: int) -> int:
+    """Consecutive wins for `team` before `before_idx`."""
+    past = matches.iloc[:before_idx]
+    team_matches = past[(past["team1"] == team) | (past["team2"] == team)]
+    if len(team_matches) == 0:
+        return 0
+
+    streak = 0
+    # Iterate backwards through team matches
+    for _, match in team_matches.iloc[::-1].iterrows():
+        if match["winner"] == team:
+            streak += 1
+        else:
+            break
+    return streak
+
+
 def load_champions_by_season(db_path: str) -> dict:
     """Load season champions from SQLite season_stats table."""
     if not os.path.exists(db_path):
@@ -288,6 +305,14 @@ def build_features(matches_df: pd.DataFrame, db_path: str, tournament: str) -> p
         f["t1_momentum"] = f["t1_recent_form"] * f["t1_venue_wr"] * f["t1_batting_str"]
         f["t2_momentum"] = f["t2_recent_form"] * f["t2_venue_wr"] * f["t2_batting_str"]
         f["momentum_diff"] = f["t1_momentum"] - f["t2_momentum"]
+
+        # Pro-level features
+        f["is_playoff"] = 1 if row.get("stage", "League") != "League" else 0
+        s1 = get_win_streak(df, t1, idx)
+        s2 = get_win_streak(df, t2, idx)
+        f["win_streak_diff"] = s1 - s2
+        f["bat_vs_bowl_diff"] = f["t1_batting_str"] - f["t2_bowling_str"]
+        f["bowl_vs_bat_diff"] = f["t1_bowling_str"] - f["t2_batting_str"]
 
         rows.append(f)
 

@@ -1,6 +1,6 @@
 """
-Stacking Ensemble model combining RF, XGBoost, LightGBM, Neural Network, and ExtraTrees.
-Uses a Logistic Regression meta-learner on top of base model probability outputs.
+Stacking Ensemble model combining base models with a Logistic Regression meta-learner.
+Uses Out-of-Fold (OOF) predictions to train the level-1 model without leakage.
 """
 
 import os
@@ -8,6 +8,7 @@ import os
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 
@@ -15,15 +16,16 @@ from config import CV_FOLDS, MODELS_DIR, RANDOM_STATE, get_tournament_paths
 from src.models.base_model import FEATURE_COLS, TARGET_COL
 from src.models.lightgbm_model import LightGBMModel
 from src.models.random_forest_model import RandomForestModel
+from src.models.xgboost_model import XGBoostModel
+from src.models.extra_trees_model import ExtraTreesModel
 
-# Default features path for main execution (not used during API calls)
-FEATURES_CSV = get_tournament_paths("ipl")["features"]
+# (No global FEATURES_CSV)
 
 
 class EnsembleModel:
     """
     Stacking ensemble:
-      Level 0: RF + XGBoost + LightGBM + NeuralNetwork + ExtraTrees
+      Level 0: RF + XGBoost + LightGBM + ExtraTrees
       Level 1: Logistic Regression meta-learner
     """
 
@@ -33,14 +35,19 @@ class EnsembleModel:
         self.save_dir = save_dir or MODELS_DIR
         self.base_models = [
             RandomForestModel(save_dir=self.save_dir),
+            XGBoostModel(save_dir=self.save_dir),
             LightGBMModel(save_dir=self.save_dir),
+            ExtraTreesModel(save_dir=self.save_dir),
         ]
+        self.meta_model = LogisticRegression()
         self.is_trained = False
 
-    def _get_meta_features(self, df: pd.DataFrame, fit: bool = False) -> np.ndarray:
+    def _get_meta_features(self, X: pd.DataFrame) -> np.ndarray:
         """Return (n_samples, n_base_models) probability matrix."""
-        X = df[FEATURE_COLS]
-        meta = np.zeros((len(df), len(self.base_models)))
+        if isinstance(X, np.ndarray):
+            X = pd.DataFrame(X, columns=FEATURE_COLS)
+        
+        meta = np.zeros((len(X), len(self.base_models)))
         for i, model in enumerate(self.base_models):
             probs = model.predict_proba(X)[:, 1]
             meta[:, i] = probs
@@ -48,62 +55,49 @@ class EnsembleModel:
 
     def train(self, df: pd.DataFrame) -> dict:
         y = df[TARGET_COL].values
-
-        # Train all base models
-        print("Training base models...")
-        for model in self.base_models:
-            model.train(df)
-            print(f"  {model.name} trained.")
-
-        self.is_trained = True
-
-        # Soft voting accuracy
-        train_acc = accuracy_score(y, self.predict(df))
-        print(f"Ensemble train accuracy: {train_acc:.4f}")
-        return {"train_accuracy": round(train_acc, 4)}
-
-    def cross_validate(self, df: pd.DataFrame) -> dict:
-        """Real stratified K-fold CV on the soft-voting ensemble.
-
-        For each fold we retrain every base model on the training split, then
-        average their probabilities on the held-out split. Falls back to the
-        base models' own averaged CV scores if any fold raises.
-        """
-        y = df[TARGET_COL].values
+        
+        # 1. Level 0: Cross-validation to get OOF meta-features
+        print(f"Training Level-0 base models with {CV_FOLDS}-fold OOF...")
         skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
-        fold_scores = []
-        for _fold_idx, (train_idx, test_idx) in enumerate(skf.split(df, y)):
+        meta_train = np.zeros((len(df), len(self.base_models)))
+        
+        for fold, (train_idx, val_idx) in enumerate(skf.split(df, y)):
             train_df = df.iloc[train_idx]
-            test_df = df.iloc[test_idx]
-            probs = np.zeros(len(test_df))
-            for model in self.base_models:
-                # Rebuild a fresh instance per fold to avoid leakage
+            val_X = df.iloc[val_idx][FEATURE_COLS]
+            
+            for i, model in enumerate(self.base_models):
+                # We use a fresh instance to avoid leakage from previous folds or final train
                 fresh = model.__class__(save_dir=self.save_dir)
                 fresh.train(train_df)
-                probs += fresh.predict_proba(test_df[FEATURE_COLS])[:, 1]
-            probs /= len(self.base_models)
-            preds = (probs >= 0.5).astype(int)
-            fold_scores.append(accuracy_score(y[test_idx], preds))
-        arr = np.array(fold_scores)
-        return {
-            "cv_mean": round(float(arr.mean()), 4),
-            "cv_std": round(float(arr.std()), 4),
-            "cv_scores": [round(float(s), 4) for s in arr],
-        }
+                meta_train[val_idx, i] = fresh.predict_proba(val_X)[:, 1]
+            print(f"  Fold {fold+1} complete.")
+
+        # 2. Level 1: Train Meta-learner
+        print("Training Level-1 meta-learner (Logistic Regression)...")
+        self.meta_model.fit(meta_train, y)
+        
+        # 3. Final Level 0: Retrain all base models on FULL data
+        print("Finalizing base models on full training set...")
+        for model in self.base_models:
+            model.train(df)
+
+        self.is_trained = True
+        
+        train_metrics = self.evaluate(df)
+        print(f"Ensemble train accuracy: {train_metrics['accuracy']:.4f}")
+        return train_metrics
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         if not self.is_trained:
             raise RuntimeError("Model not trained yet.")
-        meta = self._get_meta_features(
-            X if isinstance(X, pd.DataFrame) else pd.DataFrame(X, columns=FEATURE_COLS)
-        )
-        # Soft Voting (Mean of probabilities)
-        mean_probs = np.mean(meta, axis=1)
-
-        # Format as (n_samples, 2)
+        
+        meta = self._get_meta_features(X)
+        # Use meta-model to predict final probabilities
+        final_probs_1 = self.meta_model.predict_proba(meta)[:, 1]
+        
         final_probs = np.zeros((len(X), 2))
-        final_probs[:, 1] = mean_probs
-        final_probs[:, 0] = 1.0 - mean_probs
+        final_probs[:, 1] = final_probs_1
+        final_probs[:, 0] = 1.0 - final_probs_1
         return final_probs
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
@@ -121,12 +115,15 @@ class EnsembleModel:
 
     def save(self):
         os.makedirs(self.save_dir, exist_ok=True)
+        # Save meta-model and base model names
         data = {
+            "meta_model": self.meta_model,
             "base_model_names": [m.name for m in self.base_models],
         }
         path = os.path.join(self.save_dir, f"{self.name}.pkl")
         joblib.dump(data, path)
-        # Also save individual base models (redundant but safe)
+        
+        # Save individual base models
         for m in self.base_models:
             m.save()
         print(f"Ensemble saved: {path}")
@@ -134,22 +131,24 @@ class EnsembleModel:
 
     def load(self):
         path = os.path.join(self.save_dir, f"{self.name}.pkl")
-        joblib.load(path)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Ensemble file not found: {path}")
+            
+        data = joblib.load(path)
+        self.meta_model = data["meta_model"]
+        
         for m in self.base_models:
             m.load()
+            
         self.is_trained = True
         print(f"Ensemble loaded: {path}")
 
 
 if __name__ == "__main__":
-    df = pd.read_csv(FEATURES_CSV)
+    paths = get_tournament_paths("ipl")
+    df = pd.read_csv(paths["features"])
     model = EnsembleModel()
-    print("Running OOF cross-validation (takes a few minutes)...")
-    cv = model.cross_validate(df)
-    print(f"\nEnsemble CV accuracy: {cv['cv_mean']:.4f}")
-    print("\nTraining final ensemble on full data...")
     model.train(df)
     metrics = model.evaluate(df)
     print(f"Final train accuracy: {metrics['accuracy']:.4f}")
-    print(f"ROC AUC: {metrics['roc_auc']:.4f}")
     model.save()

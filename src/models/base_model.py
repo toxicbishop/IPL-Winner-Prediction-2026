@@ -70,6 +70,11 @@ FEATURE_COLS = [
     "t1_momentum",
     "t2_momentum",
     "momentum_diff",
+    # Pro-level improvements (new)
+    "is_playoff",
+    "win_streak_diff",
+    "bat_vs_bowl_diff",
+    "bowl_vs_bat_diff",
 ]
 TARGET_COL = "team1_won"
 

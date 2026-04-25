@@ -17,7 +17,7 @@ Folds:
 import numpy as np
 import pandas as pd
 
-from config import FEATURES_CSV
+from config import RANDOM_STATE, get_tournament_paths
 from src.models.base_model import FEATURE_COLS, TARGET_COL
 
 # Seasons used for cross-validation folds
@@ -143,7 +143,8 @@ def print_cv_summary(all_results: dict):
 
 
 if __name__ == "__main__":
-    df = pd.read_csv(FEATURES_CSV)
+    paths = get_tournament_paths("ipl")
+    df = pd.read_csv(paths["features"])
     print(f"Dataset: {len(df)} matches across seasons {df['season'].min()}-{df['season'].max()}")
     results = run_all_walk_forward_cv(df)
     print_cv_summary(results)

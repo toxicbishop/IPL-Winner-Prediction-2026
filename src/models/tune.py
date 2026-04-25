@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 
-from config import FEATURES_CSV, RANDOM_STATE, RESULTS_DIR
+from config import RANDOM_STATE, RESULTS_DIR, get_tournament_paths
 from src.models.base_model import FEATURE_COLS, TARGET_COL
 from src.models.cross_validator import walk_forward_split
 
@@ -135,7 +135,8 @@ def run_tuning(n_trials: int = 50) -> dict:
         print("Optuna not available. Skipping HPO.")
         return {}
 
-    df = pd.read_csv(FEATURES_CSV)
+    paths = get_tournament_paths("ipl")
+    df = pd.read_csv(paths["features"])
     print(f"Tuning on {len(df)} samples with walk-forward CV...")
 
     best_params = {}
