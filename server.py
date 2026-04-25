@@ -30,9 +30,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount outputs for static access
+# Mount outputs and assets for static access
 os.makedirs("outputs", exist_ok=True)
+os.makedirs("data/assets/logos", exist_ok=True)
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
+app.mount("/assets", StaticFiles(directory="data/assets"), name="assets")
 
 # Include API routes
 app.include_router(api_router, prefix="/api")

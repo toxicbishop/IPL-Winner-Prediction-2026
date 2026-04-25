@@ -31,6 +31,7 @@ DB_DIR = os.path.join(DATA_DIR, "db")
 OUTPUTS_DIR = os.path.join(BASE_DIR, base_cfg["paths"]["outputs_dir"])
 MODELS_DIR = os.path.join(OUTPUTS_DIR, "models")
 RESULTS_DIR = os.path.join(OUTPUTS_DIR, "results")
+SQLITE_DB_PATH = os.path.join(DB_DIR, "ipl.db")
 
 # --- Tournament Directories ---
 TOURNAMENTS = {}
@@ -62,6 +63,7 @@ TEAMS = data_cfg["teams"]
 TEAM_ALIASES = data_cfg["team_aliases"]
 RETIRED_TEAM_MAP = data_cfg["retired_team_map"]
 ACTIVE_TEAMS_2026 = list(TEAMS.keys())
+ICC_MEN_TEAMS = data_cfg.get("icc_men_teams", {})
 
 # --- Seasons ---
 FIRST_SEASON = data_cfg["seasons"]["first"]
