@@ -4,6 +4,7 @@ Loads from config/*.yaml and maintains backward compatibility.
 """
 
 import os
+
 import yaml
 
 # --- Path Resolution ---
@@ -15,7 +16,7 @@ def load_yaml(filename):
     if not os.path.exists(path):
         # Fallback if running from root
         path = os.path.join(BASE_DIR, "config", filename)
-    with open(path, "r") as f:
+    with open(path) as f:
         return yaml.safe_load(f)
 
 # Load YAML configs

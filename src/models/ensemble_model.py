@@ -11,10 +11,13 @@ import pandas as pd
 from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 
-from config import CV_FOLDS, FEATURES_CSV, MODELS_DIR, RANDOM_STATE
+from config import CV_FOLDS, MODELS_DIR, RANDOM_STATE, get_tournament_paths
 from src.models.base_model import FEATURE_COLS, TARGET_COL
 from src.models.lightgbm_model import LightGBMModel
 from src.models.random_forest_model import RandomForestModel
+
+# Default features path for main execution (not used during API calls)
+FEATURES_CSV = get_tournament_paths("ipl")["features"]
 
 
 class EnsembleModel:

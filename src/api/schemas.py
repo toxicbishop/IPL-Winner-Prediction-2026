@@ -1,5 +1,7 @@
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel
+
 
 class WinnerProbabilityResponse(BaseModel):
     team: str
@@ -9,7 +11,7 @@ class ModelStatsResponse(BaseModel):
     model: str
     accuracy: float
     log_loss: float
-    
+
 class MatchFixtureResponse(BaseModel):
     date: str
     team1: str
@@ -17,9 +19,9 @@ class MatchFixtureResponse(BaseModel):
     venue: str
 
 class IntelligenceResponse(BaseModel):
-    squad_strength: Dict[str, Any]
-    playoff_rate: Dict[str, Any]
-    form_score: Dict[str, Any]
+    squad_strength: dict[str, Any]
+    playoff_rate: dict[str, Any]
+    form_score: dict[str, Any]
 
 class SimulateH2HRequest(BaseModel):
     team1: str

@@ -4,15 +4,16 @@ Trains all individual models + ensemble, saves metrics to JSON and MLflow.
 """
 
 import json
-import os
 import logging
-import pandas as pd
+import os
+
 import mlflow
 import mlflow.sklearn
+import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from config import RANDOM_STATE, TEST_SIZE, get_tournament_paths
-from src.models.base_model import FEATURE_COLS, TARGET_COL
+from src.models.base_model import TARGET_COL
 from src.models.ensemble_model import EnsembleModel
 from src.models.extra_trees_model import ExtraTreesModel
 from src.models.lightgbm_model import LightGBMModel
@@ -57,7 +58,7 @@ def train_all(df: pd.DataFrame, models_dir: str, tournament: str) -> dict:
     )
 
     best_params = load_best_params()
-    
+
     individual_models = [
         RandomForestModel(save_dir=models_dir),
         XGBoostModel(save_dir=models_dir),
@@ -69,7 +70,7 @@ def train_all(df: pd.DataFrame, models_dir: str, tournament: str) -> dict:
     for model in individual_models:
         with mlflow.start_run(run_name=f"{tournament}_{model.name}"):
             print(f"\nTraining: {model.name.upper()}")
-            
+
             if best_params:
                 _apply_tuned_params(model, best_params)
 
@@ -106,7 +107,7 @@ def train_all(df: pd.DataFrame, models_dir: str, tournament: str) -> dict:
         ensemble.train(df_train)
         ens_test = ensemble.evaluate(df_test)
         ensemble.save()
-        
+
         mlflow.log_param("tournament", tournament)
         mlflow.log_metric("test_accuracy", ens_test["accuracy"])
         if "roc_auc" in ens_test:

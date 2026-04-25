@@ -309,14 +309,14 @@ def run_feature_engineering(tournament: str = "ipl") -> pd.DataFrame:
 
     df_matches = pd.read_csv(processed_matches)
     df_features = build_features(df_matches, paths["db"], tournament)
-    
+
     # Save to legacy CSV
     save_features(df_features, paths["features"])
-    
+
     # Save to Feature Store (Parquet)
     from src.features.store import save_features as store_features
     store_features(df_features, tournament)
-    
+
     return df_features
 
 
