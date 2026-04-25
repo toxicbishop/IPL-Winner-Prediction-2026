@@ -10,9 +10,9 @@ Usage:
   python main.py --mode all        # Run full pipeline end-to-end
   python main.py --mode visualize  # Generate charts (needs predict to run first)
 """
+
 import argparse
 import logging
-import os
 import sys
 import time
 
@@ -34,12 +34,12 @@ def mode_setup():
     logger.info("=== SETUP: Extracting real IPL data and building features ===")
     t0 = time.time()
 
-    from src.data.create_dataset import run_ingestion as run_create_dataset
-    from src.data.db_setup     import setup_database
-    from src.data.ingest       import run_ingestion as run_db_ingestion
-    from src.data.preprocess   import run_preprocessing
-    from src.features.engineer import run_feature_engineering
     from config import TOURNAMENTS, get_tournament_paths
+    from src.data.create_dataset import run_ingestion as run_create_dataset
+    from src.data.db_setup import setup_database
+    from src.data.ingest import run_ingestion as run_db_ingestion
+    from src.data.preprocess import run_preprocessing
+    from src.features.engineer import run_feature_engineering
 
     logger.info("Step 1/5: Extracting match data from raw JSONs...")
     run_create_dataset()
@@ -48,19 +48,19 @@ def mode_setup():
         logger.info(f"--- Processing tournament: {tournament} ---")
         paths = get_tournament_paths(tournament)
 
-        logger.info(f"Step 2/5: Creating SQLite database schema...")
+        logger.info("Step 2/5: Creating SQLite database schema...")
         setup_database(paths["db"])
 
-        logger.info(f"Step 3/5: Ingesting data into SQLite...")
+        logger.info("Step 3/5: Ingesting data into SQLite...")
         run_db_ingestion(tournament)
 
-        logger.info(f"Step 4/5: Preprocessing matches...")
+        logger.info("Step 4/5: Preprocessing matches...")
         run_preprocessing(tournament)
 
-        logger.info(f"Step 5/5: Engineering features...")
+        logger.info("Step 5/5: Engineering features...")
         run_feature_engineering(tournament)
 
-    logger.info(f"Setup complete in {time.time()-t0:.1f}s")
+    logger.info(f"Setup complete in {time.time() - t0:.1f}s")
 
 
 def mode_train():
@@ -68,9 +68,10 @@ def mode_train():
     t0 = time.time()
 
     from src.models.trainer import run_training
+
     results = run_training()
 
-    logger.info(f"Training complete in {time.time()-t0:.1f}s")
+    logger.info(f"Training complete in {time.time() - t0:.1f}s")
     return results
 
 
@@ -79,22 +80,26 @@ def mode_predict():
     t0 = time.time()
 
     from src.prediction.predict_2026 import (
-        predict_2026_winner, print_predictions, save_predictions,
+        predict_2026_winner,
+        print_predictions,
+        save_predictions,
     )
+
     rankings, fixtures = predict_2026_winner()
     print_predictions(rankings)
     save_predictions(rankings, fixtures)
 
-    logger.info(f"Prediction complete in {time.time()-t0:.1f}s")
+    logger.info(f"Prediction complete in {time.time() - t0:.1f}s")
     return rankings
 
 
 def mode_visualize():
     logger.info("=== VISUALIZE: Generating charts and SHAP explainability ===")
-    from src.prediction.visualize import generate_all_charts
     from src.prediction.explainability import run_explainability
+    from src.prediction.visualize import generate_all_charts
+
     generate_all_charts()
-    
+
     # Explain why our top models make their predictions
     for model in ["xgboost", "lightgbm", "extra_trees"]:
         try:

@@ -3,12 +3,13 @@
 Proxy: top 15 players per team by matches played in 2025, combining batters and
 bowlers. Editable by hand after generation to reflect auction/retention moves.
 """
+
 import json
 from pathlib import Path
 
 import pandas as pd
 
-from config import TEAM_ALIASES, ACTIVE_TEAMS_2026
+from config import ACTIVE_TEAMS_2026, TEAM_ALIASES
 
 ROOT = Path(__file__).resolve().parent.parent
 BBB_CSV = ROOT / "data" / "mock" / "IPL.csv"

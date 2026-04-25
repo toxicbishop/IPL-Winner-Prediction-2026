@@ -2,9 +2,10 @@
 LightGBM model for IPL match winner prediction.
 """
 
+from lightgbm import LGBMClassifier
+
 from config import MODEL_PARAMS
 from src.models.base_model import BaseIPLModel
-from lightgbm import LGBMClassifier
 
 
 class LightGBMModel(BaseIPLModel):
@@ -16,7 +17,9 @@ class LightGBMModel(BaseIPLModel):
 
 if __name__ == "__main__":
     import pandas as pd
+
     from config import FEATURES_CSV
+
     df = pd.read_csv(FEATURES_CSV)
     model = LightGBMModel()
     cv = model.cross_validate(df)

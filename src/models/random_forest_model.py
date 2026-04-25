@@ -2,9 +2,10 @@
 Random Forest model for IPL match winner prediction.
 """
 
+from sklearn.ensemble import RandomForestClassifier
+
 from config import MODEL_PARAMS
 from src.models.base_model import BaseIPLModel
-from sklearn.ensemble import RandomForestClassifier
 
 
 class RandomForestModel(BaseIPLModel):
@@ -17,7 +18,9 @@ class RandomForestModel(BaseIPLModel):
 
 if __name__ == "__main__":
     import pandas as pd
+
     from config import FEATURES_CSV
+
     df = pd.read_csv(FEATURES_CSV)
     model = RandomForestModel()
     cv = model.cross_validate(df)

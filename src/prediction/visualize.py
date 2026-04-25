@@ -1,27 +1,30 @@
 """
 Visualization module: plots for model performance and 2026 predictions.
 """
-import os
+
 import json
+import os
+
+import matplotlib
 import numpy as np
 import pandas as pd
-import matplotlib
+
 matplotlib.use("Agg")  # headless
 import matplotlib.pyplot as plt
 
-from config import get_tournament_paths
+from config import RESULTS_DIR, get_tournament_paths
 
 PALETTE = {
-    "CSK":  "#F9CD02",
-    "MI":   "#004BA0",
-    "RCB":  "#EC1C24",
-    "KKR":  "#3A225D",
-    "DC":   "#00008B",
+    "CSK": "#F9CD02",
+    "MI": "#004BA0",
+    "RCB": "#EC1C24",
+    "KKR": "#3A225D",
+    "DC": "#00008B",
     "PBKS": "#ED1B24",
-    "RR":   "#2D9CDB",
-    "SRH":  "#F7A721",
-    "LSG":  "#A2D9CE",
-    "GT":   "#1B2A4A",
+    "RR": "#2D9CDB",
+    "SRH": "#F7A721",
+    "LSG": "#A2D9CE",
+    "GT": "#1B2A4A",
 }
 
 
@@ -35,13 +38,23 @@ def plot_win_probability_bar(rankings: list, save_path: str = None):
 
     bars = ax.barh(teams[::-1], probs[::-1], color=colors[::-1], edgecolor="white", height=0.6)
     ax.set_xlabel("Win Probability (%)", fontsize=13, fontweight="bold")
-    ax.set_title("IPL 2026 Winner Prediction\n(Stacking Ensemble + Bayesian Update)",
-                 fontsize=15, fontweight="bold", pad=15)
+    ax.set_title(
+        "IPL 2026 Winner Prediction\n(Stacking Ensemble + Bayesian Update)",
+        fontsize=15,
+        fontweight="bold",
+        pad=15,
+    )
     ax.set_xlim(0, max(probs) * 1.25)
 
-    for bar, prob in zip(bars, probs[::-1]):
-        ax.text(bar.get_width() + 0.2, bar.get_y() + bar.get_height() / 2,
-                f"{prob:.2f}%", va="center", fontsize=11, fontweight="bold")
+    for bar, prob in zip(bars, probs[::-1], strict=False):
+        ax.text(
+            bar.get_width() + 0.2,
+            bar.get_y() + bar.get_height() / 2,
+            f"{prob:.2f}%",
+            va="center",
+            fontsize=11,
+            fontweight="bold",
+        )
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -65,14 +78,16 @@ def plot_model_comparison(results_file_path: str, save_path: str = None):
 
     models = list(results.keys())
     test_accs = [results[m]["test_accuracy"] * 100 for m in models]
-    cv_accs   = [results[m].get("cv_accuracy", 0) * 100 for m in models]
+    cv_accs = [results[m].get("cv_accuracy", 0) * 100 for m in models]
 
     x = np.arange(len(models))
     width = 0.35
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    bars1 = ax.bar(x - width/2, cv_accs,  width, label="CV Accuracy",   color="#2196F3", alpha=0.85)
-    bars2 = ax.bar(x + width/2, test_accs, width, label="Test Accuracy", color="#4CAF50", alpha=0.85)
+    bars1 = ax.bar(x - width / 2, cv_accs, width, label="CV Accuracy", color="#2196F3", alpha=0.85)
+    bars2 = ax.bar(
+        x + width / 2, test_accs, width, label="Test Accuracy", color="#4CAF50", alpha=0.85
+    )
 
     ax.set_xlabel("Model", fontsize=13)
     ax.set_ylabel("Accuracy (%)", fontsize=13)
@@ -87,13 +102,15 @@ def plot_model_comparison(results_file_path: str, save_path: str = None):
     for bar in bars1:
         h = bar.get_height()
         if h > 0:
-            ax.text(bar.get_x() + bar.get_width()/2, h + 0.5, f"{h:.1f}%",
-                    ha="center", fontsize=9)
+            ax.text(
+                bar.get_x() + bar.get_width() / 2, h + 0.5, f"{h:.1f}%", ha="center", fontsize=9
+            )
     for bar in bars2:
         h = bar.get_height()
         if h > 0:
-            ax.text(bar.get_x() + bar.get_width()/2, h + 0.5, f"{h:.1f}%",
-                    ha="center", fontsize=9)
+            ax.text(
+                bar.get_x() + bar.get_width() / 2, h + 0.5, f"{h:.1f}%", ha="center", fontsize=9
+            )
 
     plt.tight_layout()
     plt.savefig(save_path, dpi=150, bbox_inches="tight")
@@ -120,6 +137,7 @@ def plot_historical_win_rates(features_csv_path: str, save_path: str):
     """Line chart of team win rates per season."""
     df = pd.read_csv(features_csv_path)
     from config import ACTIVE_TEAMS_2026
+
     season_min = int(df["season"].min())
     season_max = int(df["season"].max())
 
@@ -138,12 +156,23 @@ def plot_historical_win_rates(features_csv_path: str, save_path: str):
     for team, rates in season_rates.items():
         seasons = sorted(rates.keys())
         wr = [rates[s] for s in seasons]
-        ax.plot(seasons, wr, marker="o", label=team,
-                color=PALETTE.get(team, "#888888"), linewidth=2, markersize=5)
+        ax.plot(
+            seasons,
+            wr,
+            marker="o",
+            label=team,
+            color=PALETTE.get(team, "#888888"),
+            linewidth=2,
+            markersize=5,
+        )
 
     ax.set_xlabel("Season", fontsize=13)
     ax.set_ylabel("Win Rate", fontsize=13)
-    ax.set_title(f"Tournament Team Win Rates by Season ({season_min}-{season_max})", fontsize=15, fontweight="bold")
+    ax.set_title(
+        f"Tournament Team Win Rates by Season ({season_min}-{season_max})",
+        fontsize=15,
+        fontweight="bold",
+    )
     ax.legend(bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=9)
     ax.grid(True, alpha=0.3)
     ax.set_ylim(0, 1.05)
@@ -158,7 +187,7 @@ def generate_all_charts(tournament: str = "ipl"):
     paths = get_tournament_paths(tournament)
     results_dir = paths["results"]
     os.makedirs(results_dir, exist_ok=True)
-    
+
     pred_file = os.path.join(results_dir, "prediction_2026.json")
     if os.path.exists(pred_file):
         with open(pred_file) as f:
@@ -167,12 +196,12 @@ def generate_all_charts(tournament: str = "ipl"):
 
     plot_model_comparison(
         results_file_path=os.path.join(results_dir, "model_results.json"),
-        save_path=os.path.join(results_dir, "model_comparison.png")
+        save_path=os.path.join(results_dir, "model_comparison.png"),
     )
-    
+
     plot_historical_win_rates(
         features_csv_path=paths["features"],
-        save_path=os.path.join(results_dir, "historical_win_rates.png")
+        save_path=os.path.join(results_dir, "historical_win_rates.png"),
     )
 
     print("\nAll charts generated in:", results_dir)
@@ -180,6 +209,7 @@ def generate_all_charts(tournament: str = "ipl"):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--tournament", default="ipl")
     args = parser.parse_args()

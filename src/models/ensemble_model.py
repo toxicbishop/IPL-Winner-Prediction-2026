@@ -2,23 +2,19 @@
 Stacking Ensemble model combining RF, XGBoost, LightGBM, Neural Network, and ExtraTrees.
 Uses a Logistic Regression meta-learner on top of base model probability outputs.
 """
+
 import os
+
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
+from sklearn.model_selection import StratifiedKFold
 
-from config import MODELS_DIR, RANDOM_STATE, CV_FOLDS, FEATURES_CSV
+from config import CV_FOLDS, FEATURES_CSV, MODELS_DIR, RANDOM_STATE
 from src.models.base_model import FEATURE_COLS, TARGET_COL
-from src.models.random_forest_model import RandomForestModel
-from src.models.xgboost_model import XGBoostModel
 from src.models.lightgbm_model import LightGBMModel
-from src.models.neural_network_model import NeuralNetworkModel
-from src.models.extra_trees_model import ExtraTreesModel
-
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import StratifiedKFold, cross_val_score
-from sklearn.metrics import accuracy_score, roc_auc_score, classification_report
-from sklearn.preprocessing import StandardScaler
+from src.models.random_forest_model import RandomForestModel
 
 
 class EnsembleModel:
@@ -27,6 +23,7 @@ class EnsembleModel:
       Level 0: RF + XGBoost + LightGBM + NeuralNetwork + ExtraTrees
       Level 1: Logistic Regression meta-learner
     """
+
     name = "ensemble"
 
     def __init__(self, save_dir: str = None):
@@ -56,7 +53,7 @@ class EnsembleModel:
             print(f"  {model.name} trained.")
 
         self.is_trained = True
-        
+
         # Soft voting accuracy
         train_acc = accuracy_score(y, self.predict(df))
         print(f"Ensemble train accuracy: {train_acc:.4f}")
@@ -72,7 +69,7 @@ class EnsembleModel:
         y = df[TARGET_COL].values
         skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
         fold_scores = []
-        for fold_idx, (train_idx, test_idx) in enumerate(skf.split(df, y)):
+        for _fold_idx, (train_idx, test_idx) in enumerate(skf.split(df, y)):
             train_df = df.iloc[train_idx]
             test_df = df.iloc[test_idx]
             probs = np.zeros(len(test_df))
@@ -94,11 +91,12 @@ class EnsembleModel:
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         if not self.is_trained:
             raise RuntimeError("Model not trained yet.")
-        meta = self._get_meta_features(X if isinstance(X, pd.DataFrame)
-                                       else pd.DataFrame(X, columns=FEATURE_COLS))
+        meta = self._get_meta_features(
+            X if isinstance(X, pd.DataFrame) else pd.DataFrame(X, columns=FEATURE_COLS)
+        )
         # Soft Voting (Mean of probabilities)
         mean_probs = np.mean(meta, axis=1)
-        
+
         # Format as (n_samples, 2)
         final_probs = np.zeros((len(X), 2))
         final_probs[:, 1] = mean_probs
@@ -114,9 +112,8 @@ class EnsembleModel:
         probs = self.predict_proba(df)[:, 1]
         return {
             "accuracy": round(accuracy_score(y, preds), 4),
-            "roc_auc":  round(roc_auc_score(y, probs), 4),
-            "report":   classification_report(y, preds,
-                            target_names=["team2_won", "team1_won"]),
+            "roc_auc": round(roc_auc_score(y, probs), 4),
+            "report": classification_report(y, preds, target_names=["team2_won", "team1_won"]),
         }
 
     def save(self):
@@ -134,7 +131,7 @@ class EnsembleModel:
 
     def load(self):
         path = os.path.join(self.save_dir, f"{self.name}.pkl")
-        data = joblib.load(path)
+        joblib.load(path)
         for m in self.base_models:
             m.load()
         self.is_trained = True

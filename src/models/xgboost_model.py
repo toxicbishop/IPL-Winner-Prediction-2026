@@ -2,23 +2,25 @@
 XGBoost model for IPL match winner prediction.
 """
 
+from xgboost import XGBClassifier
+
 from config import MODEL_PARAMS
 from src.models.base_model import BaseIPLModel
-from xgboost import XGBClassifier
 
 
 class XGBoostModel(BaseIPLModel):
     name = "xgboost"
 
     def _build(self):
-        params = {k: v for k, v in MODEL_PARAMS["xgboost"].items()
-                  if k != "use_label_encoder"}
+        params = {k: v for k, v in MODEL_PARAMS["xgboost"].items() if k != "use_label_encoder"}
         self.model = XGBClassifier(**params, verbosity=0)
 
 
 if __name__ == "__main__":
     import pandas as pd
+
     from config import FEATURES_CSV
+
     df = pd.read_csv(FEATURES_CSV)
     model = XGBoostModel()
     cv = model.cross_validate(df)

@@ -2,48 +2,74 @@
 Base model class for all IPL prediction models.
 Provides common interface: train, predict, evaluate, save, load.
 """
-import os
+
 import logging
+import os
+from abc import ABC, abstractmethod
+
 import joblib
 import numpy as np
 import pandas as pd
-from abc import ABC, abstractmethod
-from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.metrics import (
-    accuracy_score, roc_auc_score, classification_report, confusion_matrix,
+    accuracy_score,
+    classification_report,
+    roc_auc_score,
 )
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 logger = logging.getLogger(__name__)
 
-from config import MODELS_DIR, RANDOM_STATE, CV_FOLDS
+from config import CV_FOLDS, MODELS_DIR, RANDOM_STATE
 
 FEATURE_COLS = [
     # Toss
-    "toss_won_by_team1", "toss_decision_bat",
+    "toss_won_by_team1",
+    "toss_decision_bat",
     # All-time win rate (Bayesian-smoothed, cumulative — no leakage)
-    "t1_alltime_wr", "t2_alltime_wr", "wr_diff",
+    "t1_alltime_wr",
+    "t2_alltime_wr",
+    "wr_diff",
     # Last 3 seasons win rate — reflects CURRENT strength, not 15yr legacy
-    "t1_last3yr_wr", "t2_last3yr_wr", "last3yr_wr_diff",
+    "t1_last3yr_wr",
+    "t2_last3yr_wr",
+    "last3yr_wr_diff",
     # Recent match form (last 5 matches)
-    "t1_recent_form", "t2_recent_form", "form_diff",
+    "t1_recent_form",
+    "t2_recent_form",
+    "form_diff",
     # Current season form
-    "t1_season_form", "t2_season_form",
+    "t1_season_form",
+    "t2_season_form",
     # Head-to-head (last 3 seasons)
     "h2h_t1_wr",
     # Venue win rates
-    "t1_venue_wr", "t2_venue_wr", "venue_wr_diff",
+    "t1_venue_wr",
+    "t2_venue_wr",
+    "venue_wr_diff",
     # Home advantage
-    "t1_is_home", "t2_is_home",
+    "t1_is_home",
+    "t2_is_home",
     # Recent titles (last 5 seasons only)
-    "t1_recent_titles", "t2_recent_titles", "recent_title_diff",
+    "t1_recent_titles",
+    "t2_recent_titles",
+    "recent_title_diff",
     # Venue pitch features (new)
-    "venue_avg_score", "venue_toss_impact", "venue_size",
+    "venue_avg_score",
+    "venue_toss_impact",
+    "venue_size",
     # Team batting/bowling strength — causal features (new)
-    "t1_batting_str", "t2_batting_str", "batting_str_diff",
-    "t1_bowling_str", "t2_bowling_str", "bowling_str_diff",
+    "t1_batting_str",
+    "t2_batting_str",
+    "batting_str_diff",
+    "t1_bowling_str",
+    "t2_bowling_str",
+    "bowling_str_diff",
     # Advanced Interaction Features (new)
-    "t1_chasing", "t2_chasing", 
-    "t1_momentum", "t2_momentum", "momentum_diff",
+    "t1_chasing",
+    "t2_chasing",
+    "t1_momentum",
+    "t2_momentum",
+    "momentum_diff",
 ]
 TARGET_COL = "team1_won"
 
@@ -94,7 +120,7 @@ class BaseIPLModel(ABC):
         scores = cross_val_score(self.model, X, y, cv=cv, scoring="accuracy", n_jobs=1)
         return {
             "cv_mean": round(scores.mean(), 4),
-            "cv_std":  round(scores.std(), 4),
+            "cv_std": round(scores.std(), 4),
             "cv_scores": [round(s, 4) for s in scores],
         }
 
@@ -104,7 +130,7 @@ class BaseIPLModel(ABC):
         probs = self.predict_proba(X)[:, 1] if hasattr(self.model, "predict_proba") else None
         metrics = {
             "accuracy": round(accuracy_score(y, preds), 4),
-            "report":   classification_report(y, preds, target_names=["team2_won", "team1_won"]),
+            "report": classification_report(y, preds, target_names=["team2_won", "team1_won"]),
         }
         if probs is not None:
             try:
@@ -148,7 +174,11 @@ class BaseIPLModel(ABC):
 
     def feature_importance(self) -> pd.Series | None:
         if hasattr(self.model, "feature_importances_"):
-            return pd.Series(self.model.feature_importances_, index=FEATURE_COLS).sort_values(ascending=False)
+            return pd.Series(self.model.feature_importances_, index=FEATURE_COLS).sort_values(
+                ascending=False
+            )
         if hasattr(self.model, "coef_"):
-            return pd.Series(abs(self.model.coef_[0]), index=FEATURE_COLS).sort_values(ascending=False)
+            return pd.Series(abs(self.model.coef_[0]), index=FEATURE_COLS).sort_values(
+                ascending=False
+            )
         return None

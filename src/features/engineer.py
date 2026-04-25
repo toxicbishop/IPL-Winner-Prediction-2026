@@ -12,19 +12,19 @@ Features generated per match row (team1 vs team2):
  - Venue pitch features
  - Team batting/bowling strength (from real player stats)
 """
+
 import os
 import sqlite3
-import numpy as np
+
 import pandas as pd
 
-from config import (
-    get_tournament_paths, TOURNAMENTS,
-    FORM_WINDOW, H2H_WINDOW_SEASONS, DB_DIR
-)
-from src.features.venue_features import (
-    get_venue_avg_score, get_venue_toss_impact, get_venue_size,
-)
+from config import FORM_WINDOW, H2H_WINDOW_SEASONS, get_tournament_paths
 from src.features.team_strength import get_team_strength_features, set_db_path
+from src.features.venue_features import (
+    get_venue_avg_score,
+    get_venue_size,
+    get_venue_toss_impact,
+)
 
 # Kept for backward-compatible tests and reporting utilities.
 # This constant is intentionally not used as a predictive feature.
@@ -57,11 +57,14 @@ def get_all_time_win_rates(matches: pd.DataFrame) -> dict:
     return rates
 
 
-def get_last_n_seasons_wr(matches: pd.DataFrame, team: str,
-                           before_season: int, n_seasons: int = 3) -> float:
+def get_last_n_seasons_wr(
+    matches: pd.DataFrame, team: str, before_season: int, n_seasons: int = 3
+) -> float:
     """Win rate over the N most recent completed seasons before `before_season`."""
-    relevant = matches[(matches["season"] < before_season) &
-                       ((matches["team1"] == team) | (matches["team2"] == team))]
+    relevant = matches[
+        (matches["season"] < before_season)
+        & ((matches["team1"] == team) | (matches["team2"] == team))
+    ]
     if len(relevant) == 0:
         return 0.5
 
@@ -87,17 +90,20 @@ def get_recent_form(matches: pd.DataFrame, team: str, before_idx: int, n: int = 
     return wins / len(recent)
 
 
-def get_h2h_rate(matches: pd.DataFrame, team1: str, team2: str, before_idx: int,
-                 window_seasons: int = 3) -> float:
+def get_h2h_rate(
+    matches: pd.DataFrame, team1: str, team2: str, before_idx: int, window_seasons: int = 3
+) -> float:
     """Head-to-head win rate of team1 vs team2 over last `window_seasons` seasons."""
     past = matches.iloc[:before_idx]
     if len(past) == 0:
         return 0.5
     recent_seasons = sorted(past["season"].unique())[-window_seasons:]
     h2h = past[
-        (past["season"].isin(recent_seasons)) &
-        (((past["team1"] == team1) & (past["team2"] == team2)) |
-         ((past["team1"] == team2) & (past["team2"] == team1)))
+        (past["season"].isin(recent_seasons))
+        & (
+            ((past["team1"] == team1) & (past["team2"] == team2))
+            | ((past["team1"] == team2) & (past["team2"] == team1))
+        )
     ]
     if len(h2h) == 0:
         return 0.5
@@ -108,10 +114,7 @@ def get_h2h_rate(matches: pd.DataFrame, team1: str, team2: str, before_idx: int,
 def get_venue_win_rate(matches: pd.DataFrame, team: str, venue: str, before_idx: int) -> float:
     """Win rate of `team` at a specific venue."""
     past = matches.iloc[:before_idx]
-    at_venue = past[
-        (past["venue"] == venue) &
-        ((past["team1"] == team) | (past["team2"] == team))
-    ]
+    at_venue = past[(past["venue"] == venue) & ((past["team1"] == team) | (past["team2"] == team))]
     if len(at_venue) == 0:
         return 0.5
     wins = (at_venue["winner"] == team).sum()
@@ -121,19 +124,21 @@ def get_venue_win_rate(matches: pd.DataFrame, team: str, venue: str, before_idx:
 def is_home_ground(team: str, venue: str, tournament: str = "ipl") -> int:
     """Returns 1 if venue is team's home ground. (IPL focus)"""
     if tournament != "ipl":
-        return 0 # In international tourneys, usually neutral venues or whole country
+        return 0  # In international tourneys, usually neutral venues or whole country
     home_map = {
-        "CSK":  ["MA Chidambaram Stadium"],
-        "MI":   ["Wankhede Stadium"],
-        "RCB":  ["M Chinnaswamy Stadium"],
-        "KKR":  ["Eden Gardens"],
-        "DC":   ["Arun Jaitley Stadium", "Feroz Shah Kotla"],
-        "RR":   ["Sawai Mansingh Stadium"],
-        "SRH":  ["Rajiv Gandhi International Cricket Stadium"],
-        "PBKS": ["Punjab Cricket Association IS Bindra Stadium",
-                 "Punjab Cricket Association Stadium"],
-        "GT":   ["Narendra Modi Stadium"],
-        "LSG":  ["BRSABV Ekana Cricket Stadium"],
+        "CSK": ["MA Chidambaram Stadium"],
+        "MI": ["Wankhede Stadium"],
+        "RCB": ["M Chinnaswamy Stadium"],
+        "KKR": ["Eden Gardens"],
+        "DC": ["Arun Jaitley Stadium", "Feroz Shah Kotla"],
+        "RR": ["Sawai Mansingh Stadium"],
+        "SRH": ["Rajiv Gandhi International Cricket Stadium"],
+        "PBKS": [
+            "Punjab Cricket Association IS Bindra Stadium",
+            "Punjab Cricket Association Stadium",
+        ],
+        "GT": ["Narendra Modi Stadium"],
+        "LSG": ["BRSABV Ekana Cricket Stadium"],
     }
     return int(venue in home_map.get(team, []))
 
@@ -142,7 +147,9 @@ def get_season_form(matches: pd.DataFrame, team: str, season: int, before_idx: i
     """Win rate within the current season up to before_idx."""
     season_matches = matches.iloc[:before_idx]
     season_matches = season_matches[season_matches["season"] == season]
-    team_matches = season_matches[(season_matches["team1"] == team) | (season_matches["team2"] == team)]
+    team_matches = season_matches[
+        (season_matches["team1"] == team) | (season_matches["team2"] == team)
+    ]
     if len(team_matches) == 0:
         return 0.5
     wins = (team_matches["winner"] == team).sum()
@@ -155,23 +162,26 @@ def load_champions_by_season(db_path: str) -> dict:
         return {}
     conn = sqlite3.connect(db_path)
     try:
-        rows = conn.execute(
-            "SELECT season, team FROM season_stats WHERE won_title = 1"
-        ).fetchall()
+        rows = conn.execute("SELECT season, team FROM season_stats WHERE won_title = 1").fetchall()
         return {int(season): team for season, team in rows}
     finally:
         conn.close()
 
 
-def get_recent_titles(team: str, before_season: int, champions_by_season: dict = None,
-                      window: int = 5, db_path: str = None) -> int:
+def get_recent_titles(
+    team: str,
+    before_season: int,
+    champions_by_season: dict = None,
+    window: int = 5,
+    db_path: str = None,
+) -> int:
     """
     Titles won by this team in the `window` seasons before `before_season`.
     If champions_by_season not provided, loads from DB.
     """
     if champions_by_season is None:
-        if db_path is None: 
-            return 0 # Fallback
+        if db_path is None:
+            return 0  # Fallback
         champions_by_season = load_champions_by_season(db_path)
     count = 0
     for season in range(before_season - window, before_season):
@@ -241,8 +251,8 @@ def build_features(matches_df: pd.DataFrame, db_path: str, tournament: str) -> p
         f["t2_is_home"] = is_home_ground(t2, venue, tournament)
 
         # Recent titles (last 5 seasons)
-        f["t1_recent_titles"]  = get_recent_titles(t1, season, champions_by_season, window=5)
-        f["t2_recent_titles"]  = get_recent_titles(t2, season, champions_by_season, window=5)
+        f["t1_recent_titles"] = get_recent_titles(t1, season, champions_by_season, window=5)
+        f["t2_recent_titles"] = get_recent_titles(t2, season, champions_by_season, window=5)
         f["recent_title_diff"] = f["t1_recent_titles"] - f["t2_recent_titles"]
 
         # Venue pitch features
@@ -265,10 +275,15 @@ def build_features(matches_df: pd.DataFrame, db_path: str, tournament: str) -> p
 
         # Interaction features for T20 Strategy
         # Chasing Advantage (Dew factor implication)
-        t1_chasing = 1 if (f["toss_won_by_team1"] == 1 and f["toss_decision_bat"] == 0) or (f["toss_won_by_team1"] == 0 and f["toss_decision_bat"] == 1) else 0
+        t1_chasing = (
+            1
+            if (f["toss_won_by_team1"] == 1 and f["toss_decision_bat"] == 0)
+            or (f["toss_won_by_team1"] == 0 and f["toss_decision_bat"] == 1)
+            else 0
+        )
         f["t1_chasing"] = t1_chasing
         f["t2_chasing"] = 1 - t1_chasing
-        
+
         # Momentum (Form * Venue mastery * Batting Strength)
         f["t1_momentum"] = f["t1_recent_form"] * f["t1_venue_wr"] * f["t1_batting_str"]
         f["t2_momentum"] = f["t2_recent_form"] * f["t2_venue_wr"] * f["t2_batting_str"]
@@ -285,12 +300,13 @@ def save_features(df: pd.DataFrame, features_csv: str):
     df.to_csv(features_csv, index=False)
     print(f"Features saved: {len(df)} rows x {len(df.columns)} cols -> {features_csv}")
 
+
 def run_feature_engineering(tournament: str = "ipl") -> pd.DataFrame:
     paths = get_tournament_paths(tournament)
     processed_matches = paths["features"].replace("features.csv", "matches_processed.csv")
     if not os.path.exists(processed_matches):
         raise FileNotFoundError(f"Processed matches not found: {processed_matches}")
-    
+
     df_matches = pd.read_csv(processed_matches)
     df_features = build_features(df_matches, paths["db"], tournament)
     save_features(df_features, paths["features"])
@@ -299,6 +315,7 @@ def run_feature_engineering(tournament: str = "ipl") -> pd.DataFrame:
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--tournament", default="ipl")
     args = parser.parse_args()

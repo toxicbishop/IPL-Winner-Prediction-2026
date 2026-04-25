@@ -1,12 +1,11 @@
 """Validate data/priors_2026.json structure and content."""
+
 import json
 import os
 
 import pytest
 
-PRIORS_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "data", "priors_2026.json"
-)
+PRIORS_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "priors_2026.json")
 
 EXPECTED_TEAMS = {"CSK", "MI", "RCB", "KKR", "DC", "PBKS", "RR", "SRH", "LSG", "GT"}
 REQUIRED_SECTIONS = ("squad_strength_2026", "playoff_rate_3yr", "season_2025_rank_score")
@@ -20,9 +19,7 @@ def priors():
 
 @pytest.mark.parametrize("section", REQUIRED_SECTIONS)
 def test_priors_has_all_teams(priors, section):
-    assert set(priors[section].keys()) == EXPECTED_TEAMS, (
-        f"{section} missing or has extra teams"
-    )
+    assert set(priors[section].keys()) == EXPECTED_TEAMS, f"{section} missing or has extra teams"
 
 
 def test_squad_strength_range(priors):

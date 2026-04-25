@@ -2,18 +2,17 @@
 Neural Network (MLP) model for IPL match winner prediction.
 Uses sklearn's MLPClassifier with StandardScaler preprocessing.
 """
+
 import os
 
-from config import MODEL_PARAMS, MODELS_DIR
-from src.models.base_model import BaseIPLModel, FEATURE_COLS, TARGET_COL
-
 import joblib
-import numpy as np
 import pandas as pd
 from sklearn.neural_network import MLPClassifier
-from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import StandardScaler
+
+from config import MODEL_PARAMS, MODELS_DIR
+from src.models.base_model import BaseIPLModel
 
 
 class NeuralNetworkModel(BaseIPLModel):
@@ -21,10 +20,12 @@ class NeuralNetworkModel(BaseIPLModel):
 
     def _build(self):
         mlp = MLPClassifier(**MODEL_PARAMS["neural_network"])
-        self.model = Pipeline([
-            ("scaler", StandardScaler()),
-            ("mlp",    mlp),
-        ])
+        self.model = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("mlp", mlp),
+            ]
+        )
 
     def feature_importance(self):
         # MLP doesn't have built-in feature importance
@@ -48,7 +49,9 @@ class NeuralNetworkModel(BaseIPLModel):
 
 if __name__ == "__main__":
     import pandas as pd
+
     from config import FEATURES_CSV
+
     df = pd.read_csv(FEATURES_CSV)
     model = NeuralNetworkModel()
     cv = model.cross_validate(df)

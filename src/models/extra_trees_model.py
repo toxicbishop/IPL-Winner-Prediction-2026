@@ -7,9 +7,10 @@ ExtraTreesClassifier differs from RandomForest:
   - Different error patterns than RF/XGBoost → improves ensemble diversity
 """
 
-from src.models.base_model import BaseIPLModel
 from sklearn.ensemble import ExtraTreesClassifier
+
 from config import RANDOM_STATE
+from src.models.base_model import BaseIPLModel
 
 
 class ExtraTreesModel(BaseIPLModel):
@@ -22,7 +23,7 @@ class ExtraTreesModel(BaseIPLModel):
             min_samples_split=4,
             min_samples_leaf=2,
             max_features="sqrt",
-            class_weight="balanced",   # handles any residual class imbalance
+            class_weight="balanced",  # handles any residual class imbalance
             random_state=RANDOM_STATE,
             n_jobs=1,
         )
@@ -30,7 +31,9 @@ class ExtraTreesModel(BaseIPLModel):
 
 if __name__ == "__main__":
     import pandas as pd
+
     from config import FEATURES_CSV
+
     df = pd.read_csv(FEATURES_CSV)
     model = ExtraTreesModel()
     cv = model.cross_validate(df)

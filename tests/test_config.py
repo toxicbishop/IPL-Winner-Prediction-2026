@@ -1,4 +1,5 @@
 """Tests for config.get_tournament_paths whitelist behavior."""
+
 import pytest
 
 from config import TOURNAMENTS, get_tournament_paths

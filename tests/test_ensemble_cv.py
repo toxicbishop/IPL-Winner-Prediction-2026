@@ -1,4 +1,5 @@
 """Verify EnsembleModel.cross_validate runs real CV (not the old stub)."""
+
 from config import CV_FOLDS
 from src.models.ensemble_model import EnsembleModel
 

@@ -1,17 +1,18 @@
 """
 Central configuration for the IPL 2026 Winner Prediction project.
 """
+
 import os
 
 # ─── Paths ───────────────────────────────────────────────────────────────────
-BASE_DIR       = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR       = os.path.join(BASE_DIR, "data")
-RAW_DIR        = os.path.join(DATA_DIR, "raw")
-PROCESSED_DIR  = os.path.join(DATA_DIR, "processed")
-DB_DIR         = os.path.join(DATA_DIR, "db")
-OUTPUTS_DIR    = os.path.join(BASE_DIR, "outputs")
-MODELS_DIR     = os.path.join(OUTPUTS_DIR, "models")
-RESULTS_DIR    = os.path.join(OUTPUTS_DIR, "results")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+RAW_DIR = os.path.join(DATA_DIR, "raw")
+PROCESSED_DIR = os.path.join(DATA_DIR, "processed")
+DB_DIR = os.path.join(DATA_DIR, "db")
+OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
+MODELS_DIR = os.path.join(OUTPUTS_DIR, "models")
+RESULTS_DIR = os.path.join(OUTPUTS_DIR, "results")
 
 # Tournament Directories
 TOURNAMENTS = {
@@ -20,29 +21,32 @@ TOURNAMENTS = {
         "processed_dir": os.path.join(PROCESSED_DIR, "ipl"),
         "results_dir": os.path.join(RESULTS_DIR, "ipl"),
         "models_dir": os.path.join(MODELS_DIR, "ipl"),
-        "db_name": "ipl.db"
+        "db_name": "ipl.db",
     },
     "icc_men": {
         "raw_dir": os.path.join(DATA_DIR, "raw_datasets", "icc_men"),
         "processed_dir": os.path.join(PROCESSED_DIR, "icc_men"),
         "results_dir": os.path.join(RESULTS_DIR, "icc_men"),
         "models_dir": os.path.join(MODELS_DIR, "icc_men"),
-        "db_name": "icc_men.db"
+        "db_name": "icc_men.db",
     },
     "icc_women": {
         "raw_dir": os.path.join(DATA_DIR, "raw_datasets", "icc_women"),
         "processed_dir": os.path.join(PROCESSED_DIR, "icc_women"),
         "results_dir": os.path.join(RESULTS_DIR, "icc_women"),
         "models_dir": os.path.join(MODELS_DIR, "icc_women"),
-        "db_name": "icc_women.db"
-    }
+        "db_name": "icc_women.db",
+    },
 }
+
 
 def get_tournament_paths(tournament: str):
     if tournament not in TOURNAMENTS:
-        raise ValueError(f"Invalid tournament: {tournament}. Must be one of {list(TOURNAMENTS.keys())}")
+        raise ValueError(
+            f"Invalid tournament: {tournament}. Must be one of {list(TOURNAMENTS.keys())}"
+        )
     t = TOURNAMENTS[tournament]
-    
+
     # Return derived paths
     return {
         "matches": os.path.join(t["processed_dir"], "matches.csv"),
@@ -51,86 +55,87 @@ def get_tournament_paths(tournament: str):
         "team_stats": os.path.join(t["processed_dir"], "team_stats.csv"),
         "db": os.path.join(DB_DIR, t["db_name"]),
         "results": t["results_dir"],
-        "models": t["models_dir"]
+        "models": t["models_dir"],
     }
+
 
 # ─── Database ────────────────────────────────────────────────────────────────
 SQLITE_DB_PATH = os.path.join(DB_DIR, "ipl.db")
 
 # ─── Data files ──────────────────────────────────────────────────────────────
-MATCHES_CSV        = os.path.join(RAW_DIR, "matches.csv")
-PLAYER_STATS_CSV   = os.path.join(RAW_DIR, "player_stats.csv")
-TEAMS_JSON         = os.path.join(RAW_DIR, "teams.json")
+MATCHES_CSV = os.path.join(RAW_DIR, "matches.csv")
+PLAYER_STATS_CSV = os.path.join(RAW_DIR, "player_stats.csv")
+TEAMS_JSON = os.path.join(RAW_DIR, "teams.json")
 
-PROCESSED_MATCHES_CSV   = os.path.join(PROCESSED_DIR, "matches_processed.csv")
-FEATURES_CSV            = os.path.join(PROCESSED_DIR, "features.csv")
-TEAM_STATS_CSV          = os.path.join(PROCESSED_DIR, "team_stats.csv")
+PROCESSED_MATCHES_CSV = os.path.join(PROCESSED_DIR, "matches_processed.csv")
+FEATURES_CSV = os.path.join(PROCESSED_DIR, "features.csv")
+TEAM_STATS_CSV = os.path.join(PROCESSED_DIR, "team_stats.csv")
 
 # ─── IPL Teams ────────────────────────────────────────────────────────────────
 TEAMS = {
-    "CSK":  "Chennai Super Kings",
-    "MI":   "Mumbai Indians",
-    "RCB":  "Royal Challengers Bengaluru",
-    "KKR":  "Kolkata Knight Riders",
-    "DC":   "Delhi Capitals",
+    "CSK": "Chennai Super Kings",
+    "MI": "Mumbai Indians",
+    "RCB": "Royal Challengers Bengaluru",
+    "KKR": "Kolkata Knight Riders",
+    "DC": "Delhi Capitals",
     "PBKS": "Punjab Kings",
-    "RR":   "Rajasthan Royals",
-    "SRH":  "Sunrisers Hyderabad",
-    "LSG":  "Lucknow Super Giants",
-    "GT":   "Gujarat Titans",
+    "RR": "Rajasthan Royals",
+    "SRH": "Sunrisers Hyderabad",
+    "LSG": "Lucknow Super Giants",
+    "GT": "Gujarat Titans",
 }
 
 # Historical team name aliases (teams renamed over the years)
 TEAM_ALIASES = {
-    "Rising Pune Supergiant":    "RPS",
-    "Rising Pune Supergiants":   "RPS",
-    "Pune Warriors":             "PW",
-    "Kochi Tuskers Kerala":      "KTK",
-    "Deccan Chargers":           "DC_OLD",
-    "Delhi Daredevils":          "DC",
-    "Kings XI Punjab":           "PBKS",
+    "Rising Pune Supergiant": "RPS",
+    "Rising Pune Supergiants": "RPS",
+    "Pune Warriors": "PW",
+    "Kochi Tuskers Kerala": "KTK",
+    "Deccan Chargers": "DC_OLD",
+    "Delhi Daredevils": "DC",
+    "Kings XI Punjab": "PBKS",
     "Royal Challengers Bangalore": "RCB",
     "Royal Challengers Bengaluru": "RCB",
-    "Chennai Super Kings":       "CSK",
-    "Mumbai Indians":            "MI",
-    "Kolkata Knight Riders":     "KKR",
-    "Rajasthan Royals":          "RR",
-    "Sunrisers Hyderabad":       "SRH",
-    "Delhi Capitals":            "DC",
-    "Punjab Kings":              "PBKS",
-    "Lucknow Super Giants":      "LSG",
-    "Gujarat Titans":            "GT",
-    "Gujarat Lions":             "GL",
+    "Chennai Super Kings": "CSK",
+    "Mumbai Indians": "MI",
+    "Kolkata Knight Riders": "KKR",
+    "Rajasthan Royals": "RR",
+    "Sunrisers Hyderabad": "SRH",
+    "Delhi Capitals": "DC",
+    "Punjab Kings": "PBKS",
+    "Lucknow Super Giants": "LSG",
+    "Gujarat Titans": "GT",
+    "Gujarat Lions": "GL",
 }
 
 # Retired franchise aliases -> map to spiritual successor for ML continuity
 RETIRED_TEAM_MAP = {
-    "DC_OLD": "SRH",   # Deccan Chargers -> Sunrisers Hyderabad (same city)
-    "RPS":    "CSK",   # Rising Pune Supergiant -> CSK returned after ban
-    "GL":     "GT",    # Gujarat Lions -> Gujarat Titans (same city)
-    "PW":     "DC",    # Pune Warriors -> dropped, no direct successor
-    "KTK":    "KTK",   # Kochi Tuskers -> dropped
+    "DC_OLD": "SRH",  # Deccan Chargers -> Sunrisers Hyderabad (same city)
+    "RPS": "CSK",  # Rising Pune Supergiant -> CSK returned after ban
+    "GL": "GT",  # Gujarat Lions -> Gujarat Titans (same city)
+    "PW": "DC",  # Pune Warriors -> dropped, no direct successor
+    "KTK": "KTK",  # Kochi Tuskers -> dropped
 }
 
 # Active teams in 2026 (current franchises)
 ACTIVE_TEAMS_2026 = list(TEAMS.keys())
 
 # ─── Seasons ─────────────────────────────────────────────────────────────────
-FIRST_SEASON      = 2008
+FIRST_SEASON = 2008
 LAST_KNOWN_SEASON = 2025
-PREDICT_SEASON    = 2026
+PREDICT_SEASON = 2026
 
 # ─── Feature Engineering ─────────────────────────────────────────────────────
-FORM_WINDOW        = 10   # last N matches for recent form
-HOME_ADVANTAGE     = True
-TOSS_FEATURES      = True
-VENUE_FEATURES     = True
-H2H_WINDOW_SEASONS = 5    # head-to-head over last N seasons
+FORM_WINDOW = 10  # last N matches for recent form
+HOME_ADVANTAGE = True
+TOSS_FEATURES = True
+VENUE_FEATURES = True
+H2H_WINDOW_SEASONS = 5  # head-to-head over last N seasons
 
 # ─── Model ────────────────────────────────────────────────────────────────────
-RANDOM_STATE  = 42
-TEST_SIZE     = 0.1
-CV_FOLDS      = 5
+RANDOM_STATE = 42
+TEST_SIZE = 0.1
+CV_FOLDS = 5
 
 MODEL_PARAMS = {
     "random_forest": {
@@ -173,4 +178,4 @@ MODEL_PARAMS = {
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 LOG_LEVEL = "INFO"
-LOG_FILE  = os.path.join(BASE_DIR, "ipl_prediction.log")
+LOG_FILE = os.path.join(BASE_DIR, "ipl_prediction.log")

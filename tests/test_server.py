@@ -1,4 +1,5 @@
 """API-level tests for server.py: input validation + CORS."""
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -52,8 +53,10 @@ def test_cors_blocks_unknown_origin(client):
         },
     )
     # Starlette returns 400 for disallowed origins on preflight
-    assert "access-control-allow-origin" not in {k.lower() for k in r.headers.keys()} \
+    assert (
+        "access-control-allow-origin" not in {k.lower() for k in r.headers.keys()}
         or r.headers.get("access-control-allow-origin") != "https://evil.example.com"
+    )
 
 
 def test_cors_allows_configured_origin(client):
