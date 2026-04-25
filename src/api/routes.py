@@ -8,12 +8,14 @@ from src.api import schemas, service
 router = APIRouter()
 logger = logging.getLogger("ipl.api.routes")
 
+
 @router.get("/winner-probabilities")
 def get_winner_probs(tournament: str = "ipl"):
     try:
         return service.get_winner_probabilities(tournament)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
 
 @router.get("/model-performance")
 def get_model_stats(tournament: str = "ipl"):
@@ -22,12 +24,14 @@ def get_model_stats(tournament: str = "ipl"):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
+
 @router.get("/match-fixtures")
 def get_match_fixtures(tournament: str = "ipl"):
     try:
         return service.get_match_fixtures(tournament)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
 
 @router.get("/shap-importance/{model_name}")
 def get_shap_importance(model_name: str, tournament: str = "ipl"):
@@ -36,12 +40,14 @@ def get_shap_importance(model_name: str, tournament: str = "ipl"):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
+
 @router.get("/intelligence")
 def get_intelligence(tournament: str = "ipl"):
     try:
         return service.get_intelligence(tournament)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
 
 @router.get("/simulate-h2h")
 def simulate_h2h(team1: str, team2: str, tournament: str = "ipl"):
@@ -52,6 +58,7 @@ def simulate_h2h(team1: str, team2: str, tournament: str = "ipl"):
     except Exception as e:
         logger.exception("Failed to simulate h2h")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 @router.post("/trigger-pipeline", response_model=schemas.TriggerPipelineResponse)
 def trigger_pipeline():
@@ -65,6 +72,7 @@ def trigger_pipeline():
         raise HTTPException(status_code=500, detail=str(e)) from e
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 @router.get("/team-logos")
 def get_team_logos():

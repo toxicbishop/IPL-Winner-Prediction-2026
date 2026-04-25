@@ -11,6 +11,7 @@ import yaml
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.join(BASE_DIR, "config")
 
+
 def load_yaml(filename):
     path = os.path.join(CONFIG_DIR, filename)
     if not os.path.exists(path):
@@ -18,6 +19,7 @@ def load_yaml(filename):
         path = os.path.join(BASE_DIR, "config", filename)
     with open(path) as f:
         return yaml.safe_load(f)
+
 
 # Load YAML configs
 base_cfg = load_yaml("base.yaml")
@@ -45,6 +47,7 @@ for name, info in data_cfg["tournaments"].items():
         "db_name": info["db_name"],
     }
 
+
 def get_tournament_paths(tournament: str):
     if tournament not in TOURNAMENTS:
         raise ValueError(f"Invalid tournament: {tournament}")
@@ -52,12 +55,14 @@ def get_tournament_paths(tournament: str):
     return {
         "matches": os.path.join(t["processed_dir"], "matches.csv"),
         "player_stats": os.path.join(t["processed_dir"], "player_stats.csv"),
+        "ball_by_ball": os.path.join(t["processed_dir"], "ball_by_ball.csv"),
         "features": os.path.join(t["processed_dir"], "features.csv"),
         "team_stats": os.path.join(t["processed_dir"], "team_stats.csv"),
         "db": os.path.join(DB_DIR, t["db_name"]),
         "results": t["results_dir"],
         "models": t["models_dir"],
     }
+
 
 # --- Data/Team Configs ---
 TEAMS = data_cfg["teams"]
@@ -85,6 +90,16 @@ RANDOM_STATE = TRAIN_CFG["random_state"]
 TEST_SIZE = TRAIN_CFG["test_size"]
 CV_FOLDS = TRAIN_CFG["cv_folds"]
 MODEL_PARAMS = model_cfg["model_params"]
+
+# --- Database Config ---
+DB_ENGINE = os.environ.get("DB_ENGINE", "sqlite")  # 'sqlite' or 'postgres'
+POSTGRES_CONFIG = {
+    "host": os.environ.get("POSTGRES_HOST", "localhost"),
+    "port": os.environ.get("POSTGRES_PORT", "5432"),
+    "user": os.environ.get("POSTGRES_USER", "postgres"),
+    "pass": os.environ.get("POSTGRES_PASSWORD", "1234"),
+    "db": os.environ.get("POSTGRES_DB", "ipl"),
+}
 
 # --- Logging ---
 LOG_LEVEL = base_cfg["logging"]["level"]

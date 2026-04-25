@@ -101,8 +101,7 @@ def run_preprocessing(tournament: str = "ipl") -> pd.DataFrame:
     df = add_binary_target(df)
     df = add_toss_features(df)
     df = add_season_order(df)
-    # Optional: mirror_matches(df) could be useful for both, but usually for franchise classes
-    df = mirror_matches(df)
+    # df = mirror_matches(df) # User suggested removing mirroring to avoid leakage
     save_processed(df, paths["features"].replace("features.csv", "matches_processed.csv"))
     # Note: features logic was slightly different, let's just point save_processed correctly
     return df

@@ -9,15 +9,22 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import StratifiedKFold
 
 from config import CV_FOLDS, MODELS_DIR, RANDOM_STATE, get_tournament_paths
 from src.models.base_model import FEATURE_COLS, TARGET_COL
+from src.models.extra_trees_model import ExtraTreesModel
 from src.models.lightgbm_model import LightGBMModel
 from src.models.random_forest_model import RandomForestModel
 from src.models.xgboost_model import XGBoostModel
-from src.models.extra_trees_model import ExtraTreesModel
 
 # (No global FEATURES_CSV)
 
@@ -46,43 +53,47 @@ class EnsembleModel:
         """Return (n_samples, n_base_models) probability matrix."""
         if isinstance(X, np.ndarray):
             X = pd.DataFrame(X, columns=FEATURE_COLS)
-        
+
         meta = np.zeros((len(X), len(self.base_models)))
         for i, model in enumerate(self.base_models):
             probs = model.predict_proba(X)[:, 1]
             meta[:, i] = probs
         return meta
 
-    def train(self, df: pd.DataFrame) -> dict:
+    def train(self, df: pd.DataFrame, sample_weight=None) -> dict:
         y = df[TARGET_COL].values
-        
+
         # 1. Level 0: Cross-validation to get OOF meta-features
         print(f"Training Level-0 base models with {CV_FOLDS}-fold OOF...")
         skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
         meta_train = np.zeros((len(df), len(self.base_models)))
-        
+
         for fold, (train_idx, val_idx) in enumerate(skf.split(df, y)):
             train_df = df.iloc[train_idx]
             val_X = df.iloc[val_idx][FEATURE_COLS]
-            
+            fold_weights = sample_weight.iloc[train_idx] if sample_weight is not None else None
+
             for i, model in enumerate(self.base_models):
                 # We use a fresh instance to avoid leakage from previous folds or final train
                 fresh = model.__class__(save_dir=self.save_dir)
-                fresh.train(train_df)
+                fresh.train(train_df, sample_weight=fold_weights)
                 meta_train[val_idx, i] = fresh.predict_proba(val_X)[:, 1]
-            print(f"  Fold {fold+1} complete.")
+            print(f"  Fold {fold + 1} complete.")
 
         # 2. Level 1: Train Meta-learner
         print("Training Level-1 meta-learner (Logistic Regression)...")
-        self.meta_model.fit(meta_train, y)
-        
+        if sample_weight is not None:
+            self.meta_model.fit(meta_train, y, sample_weight=sample_weight)
+        else:
+            self.meta_model.fit(meta_train, y)
+
         # 3. Final Level 0: Retrain all base models on FULL data
         print("Finalizing base models on full training set...")
         for model in self.base_models:
-            model.train(df)
+            model.train(df, sample_weight=sample_weight)
 
         self.is_trained = True
-        
+
         train_metrics = self.evaluate(df)
         print(f"Ensemble train accuracy: {train_metrics['accuracy']:.4f}")
         return train_metrics
@@ -90,11 +101,11 @@ class EnsembleModel:
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         if not self.is_trained:
             raise RuntimeError("Model not trained yet.")
-        
+
         meta = self._get_meta_features(X)
         # Use meta-model to predict final probabilities
         final_probs_1 = self.meta_model.predict_proba(meta)[:, 1]
-        
+
         final_probs = np.zeros((len(X), 2))
         final_probs[:, 1] = final_probs_1
         final_probs[:, 0] = 1.0 - final_probs_1
@@ -107,11 +118,31 @@ class EnsembleModel:
         y = df[TARGET_COL].values
         preds = self.predict(df)
         probs = self.predict_proba(df)[:, 1]
+
+        acc = accuracy_score(y, preds)
+        prec = precision_score(y, preds, zero_division=0)
+        rec = recall_score(y, preds, zero_division=0)
+        f1 = f1_score(y, preds, zero_division=0)
+
         return {
-            "accuracy": round(accuracy_score(y, preds), 4),
+            "accuracy": round(acc, 4),
+            "precision": round(prec, 4),
+            "recall": round(rec, 4),
+            "f1_score": round(f1, 4),
             "roc_auc": round(roc_auc_score(y, probs), 4),
-            "report": classification_report(y, preds, target_names=["team2_won", "team1_won"]),
+            "report": classification_report(
+                y, preds, target_names=["team2_won", "team1_won"], zero_division=0
+            ),
         }
+
+    def evaluate_2024(self, df: pd.DataFrame) -> dict:
+        """Specific evaluation on 2024 season matches."""
+        if "season" not in df.columns:
+            return {}
+        df_2024 = df[df["season"] == 2024].copy()
+        if df_2024.empty:
+            return {}
+        return self.evaluate(df_2024)
 
     def save(self):
         os.makedirs(self.save_dir, exist_ok=True)
@@ -122,7 +153,7 @@ class EnsembleModel:
         }
         path = os.path.join(self.save_dir, f"{self.name}.pkl")
         joblib.dump(data, path)
-        
+
         # Save individual base models
         for m in self.base_models:
             m.save()
@@ -133,13 +164,13 @@ class EnsembleModel:
         path = os.path.join(self.save_dir, f"{self.name}.pkl")
         if not os.path.exists(path):
             raise FileNotFoundError(f"Ensemble file not found: {path}")
-            
+
         data = joblib.load(path)
         self.meta_model = data["meta_model"]
-        
+
         for m in self.base_models:
             m.load()
-            
+
         self.is_trained = True
         print(f"Ensemble loaded: {path}")
 

@@ -18,17 +18,21 @@ from main import mode_predict, mode_setup, mode_train, mode_visualize
 def run_setup_task():
     mode_setup()
 
+
 @task(name="Model Training", log_prints=True)
 def run_train_task():
     mode_train()
+
 
 @task(name="Winning Prediction", log_prints=True)
 def run_predict_task():
     mode_predict()
 
+
 @task(name="Visualization", log_prints=True)
 def run_visualize_task():
     mode_visualize()
+
 
 @flow(name="IPL 2026 Prediction Pipeline")
 def ipl_prediction_pipeline():
@@ -39,6 +43,7 @@ def ipl_prediction_pipeline():
         run_visualize_task()
     except Exception as e:
         print(f"Visualization failed: {e}")
+
 
 if __name__ == "__main__":
     ipl_prediction_pipeline()

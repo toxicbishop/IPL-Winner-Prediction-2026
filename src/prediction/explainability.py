@@ -57,14 +57,26 @@ def run_explainability(model_name: str = "xgboost", tournament: str = "ipl"):
     # Check model type for appropriate explainer
     # XGBoost and LightGBM use TreeExplainer; Neural Network might need KernelExplainer or DeepExplainer
     try:
-        explainer = shap.TreeExplainer(model)
+        # For XGBoost, it's often better to pass the booster
+        if hasattr(model, "get_booster"):
+            explainer = shap.TreeExplainer(model.get_booster())
+        else:
+            explainer = shap.TreeExplainer(model)
+
         shap_values = explainer.shap_values(X_sample)
     except Exception as e:
-        logger.warning(
-            f"TreeExplainer failed ({e}). Falling back to simple KernelExplainer subset..."
-        )
-        explainer = shap.KernelExplainer(model.predict_proba, shap.sample(X, 50))
-        shap_values = explainer.shap_values(X_sample.iloc[:100])
+        logger.warning(f"TreeExplainer failed ({e}). Falling back to KernelExplainer...")
+
+        # Wrap predict_proba to ensure it gets numpy array or consistent dataframe
+        def predict_wrapper(data):
+            # If data is numpy, convert to DF with correct columns to satisfy XGBoost feature check
+            if isinstance(data, np.ndarray):
+                data_df = pd.DataFrame(data, columns=FEATURE_COLS)
+                return model.predict_proba(data_df)
+            return model.predict_proba(data)
+
+        explainer = shap.KernelExplainer(predict_wrapper, shap.sample(X, 50))
+        shap_values = explainer.shap_values(X_sample.iloc[:50])  # Use smaller subset for Kernel
 
     # Global Summary Plot
     results_dir = paths["results"]

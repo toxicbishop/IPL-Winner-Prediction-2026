@@ -40,10 +40,13 @@ app.mount("/assets", StaticFiles(directory="data/assets"), name="assets")
 # Include API routes
 app.include_router(api_router, prefix="/api")
 
+
 @app.get("/")
 def health_check():
     return {"status": "healthy", "service": "IPL 2026 Prediction API"}
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

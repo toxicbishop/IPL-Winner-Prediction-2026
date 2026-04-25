@@ -17,7 +17,7 @@ Folds:
 import numpy as np
 import pandas as pd
 
-from config import RANDOM_STATE, get_tournament_paths
+from config import get_tournament_paths
 from src.models.base_model import FEATURE_COLS, TARGET_COL
 
 # Seasons used for cross-validation folds

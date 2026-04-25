@@ -4,7 +4,6 @@ Creates tables: teams, matches, venues, season_stats, head_to_head.
 """
 
 import os
-import sqlite3
 
 from config import get_tournament_paths
 
@@ -104,20 +103,44 @@ CREATE INDEX IF NOT EXISTS idx_season_stats_team   ON season_stats(team);
 """
 
 
+from sqlalchemy import text
+
+from config import DB_ENGINE
+from src.data.db_utils import get_engine
+
+
+def get_schema_sql():
+    if DB_ENGINE == "postgres":
+        # PostgreSQL specific adjustments
+        return (
+            CREATE_TABLES_SQL.replace("AUTOINCREMENT", "")
+            .replace("REAL", "DOUBLE PRECISION")
+            .replace("INTEGER PRIMARY KEY", "SERIAL PRIMARY KEY")
+        )
+    return CREATE_TABLES_SQL
+
+
 def setup_database(db_path: str):
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    if DB_ENGINE == "sqlite":
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+
+    engine = get_engine(db_path)
     try:
-        conn.executescript(CREATE_TABLES_SQL)
-        conn.executescript(INDEXES_SQL)
-        conn.commit()
-        print(f"Database initialized at: {db_path}")
-        # Verify
-        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-        tables = [row[0] for row in cursor.fetchall()]
-        print(f"Tables created: {tables}")
-    finally:
-        conn.close()
+        with engine.begin() as conn:
+            schema = get_schema_sql()
+
+            # Execute individual statements for compatibility
+            for statement in schema.split(";"):
+                if statement.strip():
+                    conn.execute(text(statement))
+
+            for statement in INDEXES_SQL.split(";"):
+                if statement.strip():
+                    conn.execute(text(statement))
+
+        print(f"Database initialized using {DB_ENGINE} engine.")
+    except Exception as e:
+        print(f"Error setting up database: {e}")
 
 
 if __name__ == "__main__":
