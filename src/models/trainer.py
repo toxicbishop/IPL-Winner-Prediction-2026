@@ -225,11 +225,11 @@ def run_sanity_check(tournament: str = "ipl"):
     diff = full_metrics["accuracy"] - baseline_metrics["accuracy"]
     print(f"\nNet Gain: {diff:+.4f}")
     if diff > 0.02:
-        print("✅ Result: Advanced features are adding significant value.")
+        print("[SUCCESS] Result: Advanced features are adding significant value.")
     elif diff > 0:
-        print("⚠️ Result: Marginal gain. Consider feature pruning.")
+        print("[WARNING] Result: Marginal gain. Consider feature pruning.")
     else:
-        print("🚨 Result: Baseline outperforms full model. Overfitting or noise detected.")
+        print("[ERROR] Result: Baseline outperforms full model. Overfitting or noise detected.")
     print("=" * 40 + "\n")
 
 

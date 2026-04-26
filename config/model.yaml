@@ -14,11 +14,11 @@ model_params:
   xgboost:
     n_estimators: 300
     max_depth: 4
-    learning_rate: 0.02
-    subsample: 0.7
-    colsample_bytree: 0.7
-    reg_alpha: 1.5
+    learning_rate: 0.05
+    subsample: 0.85
+    colsample_bytree: 0.8
     reg_lambda: 1.5
+    min_child_weight: 3
     use_label_encoder: false
     eval_metric: "logloss"
     random_state: 42

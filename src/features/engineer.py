@@ -351,6 +351,28 @@ def build_features(matches_df: pd.DataFrame, db_path: str, tournament: str) -> p
         f["death_bowl_diff"] = t1_str["death_bowl_str"] - t2_str["death_bowl_str"]
         f["boundary_pct_diff"] = t1_str["boundary_pct"] - t2_str["boundary_pct"]
         f["pp_bowl_diff"] = t1_str["pp_bowl_str"] - t2_str["pp_bowl_str"]
+        f["mid_bowl_diff"] = t1_str["mid_bowl_str"] - t2_str["mid_bowl_str"]
+
+        # ============================================================
+        # ROLE-BASED BATTING SPLITS (phase-driven)
+        # ============================================================
+        f["top_order_diff"] = t1_str["top_order_strength"] - t2_str["top_order_strength"]
+        f["middle_order_diff"] = t1_str["middle_order_strength"] - t2_str["middle_order_strength"]
+        f["finisher_diff"] = t1_str["finisher_strength"] - t2_str["finisher_strength"]
+
+        # ============================================================
+        # VENUE SCORE INTERACTION (Match Condition Modeling)
+        # ============================================================
+        # Raw average first innings score at venue
+        venue_stats = get_venue_avg_score(venue) # This is normalized in venue_features.py
+        # Let's get the raw score for better context
+        from src.features.venue_features import _compute_venue_stats, GLOBAL_AVG_SCORE
+        raw_venue_avg = _compute_venue_stats().get(venue, {}).get("avg_score", GLOBAL_AVG_SCORE)
+        f["avg_first_innings_score_venue"] = raw_venue_avg
+        
+        # Batting strength advantage at high-scoring grounds
+        # (batting_str_diff * (venue_avg - 160))
+        f["bat_venue_interaction"] = f["batting_str_diff"] * (raw_venue_avg - 160.0)
 
         # ============================================================
         # INTERACTION FEATURES (Momentum, Matchups)
