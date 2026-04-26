@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -25,73 +26,19 @@ logger = logging.getLogger(__name__)
 from config import CV_FOLDS, MODELS_DIR, RANDOM_STATE
 
 FEATURE_COLS = [
-    # Toss (minimal - context only, not primary signal)
-    "toss_won_by_team1",
-    "toss_decision_bat",
-    # All-time win rate (Bayesian-smoothed, cumulative - no leakage)
-    "t1_alltime_wr",
-    "t2_alltime_wr",
-    "wr_diff",
-    # Last 3 seasons win rate - reflects CURRENT strength
-    "t1_last3yr_wr",
-    "t2_last3yr_wr",
-    "last3yr_wr_diff",
-    # Recent match form (last 5 matches - exponentially weighted)
-    "t1_recent_form",
-    "t2_recent_form",
-    "form_diff",
-    # Longer-term form (last 10 matches - stable trend)
+    "last10_top3_runs_diff",
+    "last10_top_order_sr_diff",
+    "last10_death_bowl_diff",
+    "last10_mid_overs_econ_diff",
+    "last10_pp_wickets_diff",
+    "win_streak_diff",
+    "last3_win_rate_diff",
     "t1_last10_form",
     "t2_last10_form",
-    "last10_form_diff",
-    # Recent NRR (last 5 matches - margin based)
-    "t1_recent_nrr",
-    "t2_recent_nrr",
-    "nrr_diff",
-    # Current season form
-    "t1_season_form",
-    "t2_season_form",
-    # Head-to-head (last 3 seasons)
-    "h2h_t1_wr",
-    # Venue win rates
     "t1_venue_wr",
     "t2_venue_wr",
-    "venue_wr_diff",
-    # Home advantage
-    "t1_is_home",
-    "t2_is_home",
-    # Recent titles (last 5 seasons only)
-    "t1_recent_titles",
-    "t2_recent_titles",
-    "recent_title_diff",
-    # Venue pitch features
-    "venue_avg_score",
-    "venue_toss_impact",
-    "venue_size",
-    # Team batting/bowling strength (from player stats)
-    "t1_batting_str",
-    "t2_batting_str",
-    "batting_str_diff",
-    "t1_bowling_str",
-    "t2_bowling_str",
-    "bowling_str_diff",
-    # Advanced player metrics (difference features)
-    "top5_bat_sr_diff",
-    "top3_bowl_econ_diff",
-    "top3_bat_runs_diff",
-    # Ball-by-ball derived features (death/powerplay/boundaries)
-    "death_bowl_diff",
-    "boundary_pct_diff",
-    "pp_bowl_diff",
-    # Momentum & interaction features
-    "t1_momentum",
-    "t2_momentum",
-    "momentum_diff",
-    # Pro-level matchup features
-    "is_playoff",
-    "win_streak_diff",
-    "bat_vs_bowl_diff",
-    "bowl_vs_bat_diff",
+    "toss_won_by_team1",
+    "toss_decision_bat",
 ]
 
 TARGET_COL = "team1_won"
@@ -130,8 +77,10 @@ class BaseIPLModel(ABC):
             raise ValueError(f"NaN values found in target column '{TARGET_COL}'.")
         return X, y
 
-    def train(self, df: pd.DataFrame, sample_weight=None) -> dict:
+    def train(self, df: pd.DataFrame, sample_weight=None, calibrate: bool = True):
+        """Trains the model on the provided dataframe."""
         X, y = self.get_X_y(df)
+        self._build()
 
         # Determine the correct fit arguments
         fit_params = {}
@@ -155,8 +104,16 @@ class BaseIPLModel(ABC):
                 fit_params["sample_weight"] = sample_weight
 
         self.model.fit(X, y, **fit_params)
+
+        if calibrate:
+            # Calibrate probabilities using isotonic method for better ensemble performance
+            print(f"  Calibrating {self.name} probabilities...")
+            calibrated = CalibratedClassifierCV(self.model, method="isotonic", cv="prefit")
+            calibrated.fit(X, y)
+            self.model = calibrated
+
         self.is_trained = True
-        train_acc = accuracy_score(y, self.model.predict(X))
+        train_acc = accuracy_score(y, self.predict(X))
         return {"train_accuracy": round(train_acc, 4)}
 
     def cross_validate(self, df: pd.DataFrame) -> dict:
@@ -241,12 +198,25 @@ class BaseIPLModel(ABC):
         print(f"Model loaded: {path}")
 
     def feature_importance(self) -> pd.Series | None:
-        if hasattr(self.model, "feature_importances_"):
-            return pd.Series(self.model.feature_importances_, index=FEATURE_COLS).sort_values(
+        model = self.model
+        # Handle calibrated models
+        if hasattr(model, "estimator"):
+            model = model.estimator
+        
+        # Handle Pipelines
+        if hasattr(model, "steps"):
+            model = model.steps[-1][1]
+
+        if hasattr(model, "feature_importances_"):
+            return pd.Series(model.feature_importances_, index=FEATURE_COLS).sort_values(
                 ascending=False
             )
-        if hasattr(self.model, "coef_"):
-            return pd.Series(abs(self.model.coef_[0]), index=FEATURE_COLS).sort_values(
+        if hasattr(model, "coef_"):
+            # Ensure it's 1D
+            coef = model.coef_
+            if len(coef.shape) > 1:
+                coef = coef[0]
+            return pd.Series(abs(coef), index=FEATURE_COLS).sort_values(
                 ascending=False
             )
         return None

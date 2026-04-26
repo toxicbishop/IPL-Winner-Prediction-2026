@@ -38,6 +38,7 @@ data/raw/*.csv
 data/raw/*.json
 data/processed/
 data/db/
+data/ipl_male_json/
 
 # Model artifacts (large binary files)
 outputs/models/

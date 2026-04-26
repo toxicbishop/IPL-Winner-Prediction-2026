@@ -311,6 +311,152 @@ def get_powerplay_economy(team: str, season: int) -> float:
     return float(np.clip((12.0 - pp_econ) / 6.0, 0, 1))
 
 
+def get_middle_overs_economy(team: str, season: int) -> float:
+    """
+    Bowling economy in middle overs (6-15) for the BOWLING team.
+    Returns normalized score: (10 - mid_econ) / 5 -> [0, 1] where 1 = best.
+    """
+    bbb = load_ball_by_ball()
+    if len(bbb) == 0:
+        return 0.5
+
+    mid = bbb[(bbb["bowling_team"] == team) & (bbb["season_year"] == season) & (bbb["over"] >= 6) & (bbb["over"] <= 15)]
+
+    if len(mid) == 0:
+        mid = bbb[(bbb["bowling_team"] == team) & (bbb["season_year"] == season - 1) & (bbb["over"] >= 6) & (bbb["over"] <= 15)]
+
+    if len(mid) == 0:
+        return 0.5
+
+    total_runs = mid["runs_total"].sum()
+    overs = len(mid) / 6.0
+    if overs < 1:
+        return 0.5
+
+    mid_econ = total_runs / overs
+    return float(np.clip((10.0 - mid_econ) / 5.0, 0, 1))
+
+
+def get_batting_split_strengths(team: str, season: int) -> dict:
+    """
+    Batting strength split by roles based on runs scored ranking.
+    top_order: 1-3, middle_order: 4-6, finisher: 7-8
+    Returns normalized values (0 to 1).
+    """
+    df = load_player_stats_cache()
+    team_players = df[(df["team"] == team) & (df["season"] == season)]
+    
+    if len(team_players) < 8:
+        team_players = df[(df["team"] == team) & (df["season"] == season - 1)]
+        
+    if len(team_players) < 8:
+        return {
+            "top_order_strength": 0.5,
+            "middle_order_strength": 0.4,
+            "finisher_strength": 0.3
+        }
+
+    batsmen = team_players[team_players["runs_scored"] > 0].sort_values("runs_scored", ascending=False)
+    
+    top3 = batsmen.iloc[0:3]
+    mid3 = batsmen.iloc[3:6]
+    fin2 = batsmen.iloc[6:8]
+    
+    def calc_str(group, max_avg=50.0):
+        if len(group) == 0:
+            return 0.3
+        avg = group["batting_avg"].mean()
+        sr = group["batting_sr"].mean()
+        # Combine avg and SR for a strength metric, normalize to ~1.0
+        score = (avg / max_avg) * 0.6 + (sr / 150.0) * 0.4
+        return float(np.clip(score, 0, 1))
+
+    return {
+        "top_order_strength": calc_str(top3, 50.0),
+        "middle_order_strength": calc_str(mid3, 40.0),
+        "finisher_strength": calc_str(fin2, 30.0),
+    }
+
+
+def get_recent_team_stats(team: str, recent_match_ids: list, bbb_df: pd.DataFrame) -> dict:
+    """Computes batting/bowling metrics from a specific set of recent matches."""
+    if not recent_match_ids or bbb_df is None or bbb_df.empty:
+        return {
+            "recent_death_econ": IPL_AVG_DEATH_ECON,
+            "recent_mid_econ": IPL_AVG_ECONOMY,
+            "recent_boundary_pct": IPL_AVG_BOUNDARY_PCT,
+            "recent_top_order_runs": 150.0,
+            "recent_top_order_sr": 135.0,
+            "recent_pp_wickets": 1.0,
+        }
+
+    # Filter BBB for these matches and team
+    team_bbb = bbb_df[bbb_df["match_id"].isin(recent_match_ids)]
+    
+    # Define weights based on number of matches found
+    match_ids = sorted(team_bbb["match_id"].unique())
+    # We want to map each match_id to a weight. Most recent match_id (max) gets 1.0
+    num_matches = len(match_ids)
+    if num_matches == 0:
+        return {
+            "recent_death_econ": IPL_AVG_DEATH_ECON,
+            "recent_mid_econ": IPL_AVG_ECONOMY,
+            "recent_boundary_pct": IPL_AVG_BOUNDARY_PCT,
+            "recent_top_order_runs": 150.0,
+            "recent_top_order_sr": 135.0,
+            "recent_pp_wickets": 1.0,
+        }
+
+    weights = np.linspace(0.6, 1.0, num_matches)
+    id_to_weight = dict(zip(match_ids, weights, strict=False))
+
+    # Simplified Weighted Mean approach:
+    # 1. Calculate per-match stats
+    match_stats = []
+    for m_id in match_ids:
+        m_data = team_bbb[team_bbb["match_id"] == m_id]
+        
+        # Death
+        d = m_data[(m_data["bowling_team"] == team) & (m_data["over"] >= 16)]
+        d_econ = (d["runs_total"].sum() / d.shape[0] * 6) if not d.empty else IPL_AVG_DEATH_ECON
+        
+        # Mid
+        mi = m_data[(m_data["bowling_team"] == team) & (m_data["over"].between(7, 15))]
+        mi_econ = (mi["runs_total"].sum() / mi.shape[0] * 6) if not mi.empty else IPL_AVG_ECONOMY
+        
+        # Batting
+        tb = m_data[(m_data["batting_team"] == team) & (m_data["over"] <= 10)]
+        tb_runs = tb["runs_total"].sum() if not tb.empty else 150.0
+        tb_sr = (tb["runs_batter"].sum() / tb.shape[0] * 100) if not tb.empty else 135.0
+        tb_b_pct = (tb["runs_batter"].isin([4, 6]).sum() / tb.shape[0] * 100) if not tb.empty else 15.0
+        
+        # PP Wickets
+        pp = m_data[(m_data["bowling_team"] == team) & (m_data["over"] <= 5)]
+        pp_w = pp["player_out"].count() if not pp.empty else 1.0
+        
+        match_stats.append({
+            "death": d_econ,
+            "mid": mi_econ,
+            "runs": tb_runs,
+            "sr": tb_sr,
+            "bpct": tb_b_pct,
+            "ppw": pp_w,
+            "weight": id_to_weight[m_id]
+        })
+
+    # 2. Aggregate using weights
+    total_w = sum(id_to_weight.values())
+    res = {
+        "recent_death_econ": sum(s["death"] * s["weight"] for s in match_stats) / total_w,
+        "recent_mid_econ": sum(s["mid"] * s["weight"] for s in match_stats) / total_w,
+        "recent_boundary_pct": sum(s["bpct"] * s["weight"] for s in match_stats) / total_w,
+        "recent_top_order_runs": sum(s["runs"] * s["weight"] for s in match_stats) / total_w,
+        "recent_top_order_sr": sum(s["sr"] * s["weight"] for s in match_stats) / total_w,
+        "recent_pp_wickets": sum(s["ppw"] * s["weight"] for s in match_stats) / total_w,
+    }
+    return res
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -327,12 +473,14 @@ def get_team_strength_features(team: str, season: int) -> dict:
             feats.setdefault("top5_bat_sr", 135.0)
             feats.setdefault("top3_bowl_econ", 8.2)
             feats.setdefault("top3_bat_runs", 300.0)
-            feats.setdefault(
-                "bat_bowl_balance", abs(feats["batting_strength"] - feats["bowling_strength"])
-            )
+            feats.setdefault("bat_bowl_balance", abs(feats.get("batting_strength", 0) - feats.get("bowling_strength", 0)))
             feats.setdefault("death_bowl_str", 0.5)
             feats.setdefault("boundary_pct", IPL_AVG_BOUNDARY_PCT)
             feats.setdefault("pp_bowl_str", 0.5)
+            feats.setdefault("mid_bowl_str", 0.5)
+            feats.setdefault("top_order_strength", 0.5)
+            feats.setdefault("middle_order_strength", 0.4)
+            feats.setdefault("finisher_strength", 0.3)
             return feats
         except Exception:
             pass
@@ -344,6 +492,8 @@ def get_team_strength_features(team: str, season: int) -> dict:
     death = get_death_over_economy(team, season)
     bdry = get_boundary_percentage(team, season)
     pp = get_powerplay_economy(team, season)
+    mid_bowl = get_middle_overs_economy(team, season)
+    bat_splits = get_batting_split_strengths(team, season)
 
     return {
         "batting_strength": bat,
@@ -356,4 +506,8 @@ def get_team_strength_features(team: str, season: int) -> dict:
         "death_bowl_str": death,
         "boundary_pct": bdry,
         "pp_bowl_str": pp,
+        "mid_bowl_str": mid_bowl,
+        "top_order_strength": bat_splits["top_order_strength"],
+        "middle_order_strength": bat_splits["middle_order_strength"],
+        "finisher_strength": bat_splits["finisher_strength"],
     }

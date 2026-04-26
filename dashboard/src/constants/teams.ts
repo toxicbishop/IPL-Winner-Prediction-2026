@@ -104,6 +104,12 @@ export interface TeamData {
   team: string;
   prob: number;
   color: string;
+  trend?: number;
+  confidence?: string;
+  explanation?: {
+    why: string[];
+    risk: string[];
+  };
 }
 
 export interface ModelStat {

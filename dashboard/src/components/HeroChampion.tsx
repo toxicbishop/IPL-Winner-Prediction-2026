@@ -25,6 +25,8 @@ const HeroChampion: React.FC<HeroChampionProps> = ({ topTeam, loading }) => {
   if (!topTeam) return null;
 
   const logo = getTeamLogo(topTeam.team);
+  const trend = topTeam.trend || 0;
+  const confidence = topTeam.confidence || 'Medium';
 
   return (
     <div
@@ -48,13 +50,28 @@ const HeroChampion: React.FC<HeroChampionProps> = ({ topTeam, loading }) => {
       </div>
 
       <div className="hero-champion-info">
-        <span className="eyebrow">
-          <Star size={10} className="mr-1 inline -translate-y-px" />
-          Predicted Champion
+        <span className="eyebrow flex items-center gap-2">
+          <span className="flex items-center">
+            <Star size={10} className="mr-1 inline -translate-y-px" />
+            Predicted Champion
+          </span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase ${
+            confidence === 'High' ? 'bg-green-500/20 text-green-400' : 
+            confidence === 'Medium' ? 'bg-blue-500/20 text-blue-400' : 'bg-orange-500/20 text-orange-400'
+          }`}>
+            {confidence} Confidence
+          </span>
         </span>
-        <h2>{topTeam.team}</h2>
+        <div className="flex items-baseline gap-4">
+          <h2>{topTeam.team}</h2>
+          {trend !== 0 && (
+            <span className={`text-sm font-bold ${trend > 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}%
+            </span>
+          )}
+        </div>
         <p>
-          Driven by squad stability, historical playoff conversion, and ensemble model consensus across 1,169 historical matches.
+          Driven by {topTeam.explanation?.why[0] || 'squad stability'} and recent {topTeam.explanation?.why[1] || 'performance'} signals.
         </p>
       </div>
 
@@ -63,7 +80,7 @@ const HeroChampion: React.FC<HeroChampionProps> = ({ topTeam, loading }) => {
           {topTeam.prob}
           <span className="ml-1 font-mono text-xl tracking-mono text-paper-muted">%</span>
         </div>
-        <div className="hero-prob-badge-label">Ensemble Win Probability</div>
+        <div className="hero-prob-badge-label">Win Probability</div>
       </div>
     </div>
   );
