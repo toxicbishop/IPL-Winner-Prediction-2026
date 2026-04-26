@@ -8,7 +8,7 @@ import os
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
+from xgboost import XGBClassifier
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -46,7 +46,14 @@ class EnsembleModel:
             LightGBMModel(save_dir=self.save_dir),
             ExtraTreesModel(save_dir=self.save_dir),
         ]
-        self.meta_model = LogisticRegression()
+        self.meta_model = XGBClassifier(
+            max_depth=2,
+            learning_rate=0.05,
+            n_estimators=50,
+            verbosity=0,
+            use_label_encoder=False,
+            eval_metric="logloss"
+        )
         self.is_trained = False
 
     def _get_meta_features(self, X: pd.DataFrame) -> np.ndarray:
@@ -81,7 +88,7 @@ class EnsembleModel:
             print(f"  Fold {fold + 1} complete.")
 
         # 2. Level 1: Train Meta-learner
-        print("Training Level-1 meta-learner (Logistic Regression)...")
+        print("Training Level-1 meta-learner (XGBoost)...")
         if sample_weight is not None:
             self.meta_model.fit(meta_train, y, sample_weight=sample_weight)
         else:

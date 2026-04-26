@@ -50,8 +50,10 @@ def add_toss_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_season_order(df: pd.DataFrame) -> pd.DataFrame:
-    """Sort by season and match_id to ensure temporal ordering."""
-    df = df.sort_values(["season", "id"]).reset_index(drop=True)
+    """Sort by date and match_id."""
+    # Convert date to datetime for sorting
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.sort_values(["date", "match_id"]).reset_index(drop=True)
     return df
 
 
@@ -66,7 +68,7 @@ def mirror_matches(df: pd.DataFrame) -> pd.DataFrame:
       - Eliminates position bias
     """
     mirrored = df.copy()
-    mirrored["id"] = -mirrored["id"]
+    mirrored["match_id"] = -mirrored["match_id"]
     mirrored["team1"] = df["team2"]
     mirrored["team2"] = df["team1"]
     mirrored["toss_winner"] = df["toss_winner"]
@@ -74,7 +76,7 @@ def mirror_matches(df: pd.DataFrame) -> pd.DataFrame:
     mirrored["team1_won"] = 1 - df["team1_won"]
 
     combined = pd.concat([df, mirrored], ignore_index=True)
-    combined = combined.sort_values(["season", "id"]).reset_index(drop=True)
+    combined = combined.sort_values(["season", "match_id"]).reset_index(drop=True)
 
     orig_pos = df["team1_won"].mean()
     new_pos = combined["team1_won"].mean()
@@ -85,13 +87,9 @@ def mirror_matches(df: pd.DataFrame) -> pd.DataFrame:
 
 def save_processed(df: pd.DataFrame, processed_csv: str):
     os.makedirs(os.path.dirname(processed_csv), exist_ok=True)
-    # Rename 'id' to 'match_id' for downstream compatibility
-    df_out = df.copy()
-    if "id" in df_out.columns and "match_id" not in df_out.columns:
-        df_out = df_out.rename(columns={"id": "match_id"})
-    df_out.to_csv(processed_csv, index=False)
-    print(f"Processed {len(df_out)} matches -> {processed_csv}")
-    print(f"Columns: {list(df_out.columns)}")
+    df.to_csv(processed_csv, index=False)
+    print(f"Processed {len(df)} matches -> {processed_csv}")
+    print(f"Columns: {list(df.columns)}")
 
 
 def run_preprocessing(tournament: str = "ipl") -> pd.DataFrame:

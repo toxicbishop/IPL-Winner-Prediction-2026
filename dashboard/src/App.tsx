@@ -11,7 +11,10 @@ import MatchForecast from './components/MatchForecast';
 import IntelligenceTab from './components/IntelligenceTab';
 import AnalyticsTab from './components/AnalyticsTab';
 import SettingsDrawer from './components/SettingsDrawer';
+import VisualInsights from './components/VisualInsights';
 import './index.css';
+
+import TeamInsights from './components/TeamInsights';
 
 const App: React.FC = () => {
   const [tournament, setTournament] = useState('ipl');
@@ -21,7 +24,7 @@ const App: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const {
     winnerData, modelStats, shapFeatures, schedule,
-    intelligenceData, loading, topTeam,
+    intelligenceData, metadata, loading, topTeam,
   } = useDashboardData(tournament);
 
   const tournamentLabel = TOURNAMENTS.find(t => t.value === tournament)?.label || tournament;
@@ -41,7 +44,10 @@ const App: React.FC = () => {
       <main className="main-content">
         <div className="main-content-header">
           <div className="header-meta">
-            <span className="eyebrow">KINETIC MONOLITH v1.0 · AI PLATFORM</span>
+            <span className="eyebrow">
+              KINETIC MONOLITH v1.0 · AI PLATFORM 
+              {metadata && ` · UPDATED: ${metadata.last_updated} · COVERAGE: ${metadata.coverage}`}
+            </span>
             <h1>{tournamentLabel}</h1>
           </div>
           <select
@@ -63,6 +69,7 @@ const App: React.FC = () => {
               <WinProbabilityChart data={winnerData} loading={loading} />
               <FeatureRadar data={shapFeatures} loading={loading} />
             </div>
+            <TeamInsights teams={winnerData} loading={loading} />
             <MatchForecast schedule={schedule} loading={loading} />
           </div>
         )}
@@ -73,6 +80,10 @@ const App: React.FC = () => {
 
         {activeTab === 'analytics' && (
           <AnalyticsTab tournament={tournament} />
+        )}
+
+        {activeTab === 'visual_insights' && (
+          <VisualInsights />
         )}
       </main>
 

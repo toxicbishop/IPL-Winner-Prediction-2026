@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
   { id: 'intelligence', label: 'Intelligence', icon: Brain },
   { id: 'analytics', label: 'Analytics', icon: LineChart },
+  { id: 'visual_insights', label: 'Visual Insights', icon: Trophy },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({
