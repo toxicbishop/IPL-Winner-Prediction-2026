@@ -193,7 +193,7 @@ def ingest_matches(conn, df: pd.DataFrame):
                 "is_final",
             ],
             (
-                int(row["id"]),
+                int(row["match_id"]),
                 season,
                 t1,
                 t2,

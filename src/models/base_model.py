@@ -26,21 +26,19 @@ logger = logging.getLogger(__name__)
 from config import CV_FOLDS, MODELS_DIR, RANDOM_STATE
 
 FEATURE_COLS = [
-    # Temporal Performance (Last 5)
-    "last5_top3_runs_diff",
-    "last5_death_bowl_diff",
-    "last5_mid_overs_econ_diff",
-    
-    # Momentum (Last 3 - 10)
+    "last10_top3_runs_diff",
+    "last10_top_order_sr_diff",
+    "last10_death_bowl_diff",
+    "last10_mid_overs_econ_diff",
+    "last10_pp_wickets_diff",
     "win_streak_diff",
     "last3_win_rate_diff",
     "t1_last10_form",
     "t2_last10_form",
-    
-    # Context
     "t1_venue_wr",
-    "bat_vs_bowl_diff",
-    "bowl_vs_bat_diff",
+    "t2_venue_wr",
+    "toss_won_by_team1",
+    "toss_decision_bat",
 ]
 
 TARGET_COL = "team1_won"

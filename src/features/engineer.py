@@ -295,31 +295,28 @@ def build_features(matches_df: pd.DataFrame, db_path: str, tournament: str) -> p
         f["win_streak_diff"] = s1 - s2
 
         # ============================================================
-        # TEMPORAL TEAM STRENGTH (Last 5 matches)
+        # TEMPORAL TEAM STRENGTH (Last 10 matches)
         # ============================================================
-        m_ids1 = get_last_n_match_ids(df, t1, idx, 5)
-        m_ids2 = get_last_n_match_ids(df, t2, idx, 5)
+        m_ids1 = get_last_n_match_ids(df, t1, idx, 10)
+        m_ids2 = get_last_n_match_ids(df, t2, idx, 10)
         
         stats1 = get_recent_team_stats(t1, m_ids1, bbb_df)
         stats2 = get_recent_team_stats(t2, m_ids2, bbb_df)
         
-        f["last5_top3_runs_diff"] = stats1["recent_top_order_runs"] - stats2["recent_top_order_runs"]
-        f["last5_top_order_sr_diff"] = stats1["recent_top_order_sr"] - stats2["recent_top_order_sr"]
-        f["last5_death_bowl_diff"] = stats1["recent_death_econ"] - stats2["recent_death_econ"]
-        f["last5_mid_overs_econ_diff"] = stats1["recent_mid_econ"] - stats2["recent_mid_econ"]
-        f["last5_boundary_pct_diff"] = stats1["recent_boundary_pct"] - stats2["recent_boundary_pct"]
+        f["last10_top3_runs_diff"] = stats1["recent_top_order_runs"] - stats2["recent_top_order_runs"]
+        f["last10_top_order_sr_diff"] = stats1["recent_top_order_sr"] - stats2["recent_top_order_sr"]
+        f["last10_death_bowl_diff"] = stats1["recent_death_econ"] - stats2["recent_death_econ"]
+        f["last10_mid_overs_econ_diff"] = stats1["recent_mid_econ"] - stats2["recent_mid_econ"]
+        f["last10_pp_wickets_diff"] = stats1["recent_pp_wickets"] - stats2["recent_pp_wickets"]
 
         # ============================================================
-        # CONTEXT (Venue, All-time balance)
+        # CONTEXT (Venue, Toss)
         # ============================================================
         f["t1_venue_wr"] = get_venue_win_rate(df, t1, venue, idx)
         f["t2_venue_wr"] = get_venue_win_rate(df, t2, venue, idx)
         
-        # All-time season strength (for baseline anchor)
-        t1_str = get_team_strength_features(t1, season)
-        t2_str = get_team_strength_features(t2, season)
-        f["bat_vs_bowl_diff"] = t1_str["batting_strength"] - t2_str["bowling_strength"]
-        f["bowl_vs_bat_diff"] = t1_str["bowling_strength"] - t2_str["batting_strength"]
+        f["toss_won_by_team1"] = int(row.get("toss_won_by_team1", 0))
+        f["toss_decision_bat"] = int(row.get("toss_decision_bat", 0))
 
         # Target
         f["team1_won"] = int(row["team1_won"])

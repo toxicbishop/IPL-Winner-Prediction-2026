@@ -123,7 +123,8 @@ def extract_matches(df: pd.DataFrame) -> pd.DataFrame:
 
     result = matches[
         [
-            "id",
+            "match_id",
+            "date",
             "season_year",
             "team1",
             "team2",
@@ -138,7 +139,8 @@ def extract_matches(df: pd.DataFrame) -> pd.DataFrame:
         ]
     ].copy()
     result.columns = [
-        "id",
+        "match_id",
+        "date",
         "season",
         "team1",
         "team2",

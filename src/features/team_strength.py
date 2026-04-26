@@ -387,51 +387,74 @@ def get_recent_team_stats(team: str, recent_match_ids: list, bbb_df: pd.DataFram
             "recent_boundary_pct": IPL_AVG_BOUNDARY_PCT,
             "recent_top_order_runs": 150.0,
             "recent_top_order_sr": 135.0,
+            "recent_pp_wickets": 1.0,
         }
 
     # Filter BBB for these matches and team
     team_bbb = bbb_df[bbb_df["match_id"].isin(recent_match_ids)]
     
-    # 1. Death Bowling (overs 16-20)
-    death = team_bbb[(team_bbb["bowling_team"] == team) & (team_bbb["over"] >= 16)]
-    if not death.empty:
-        runs = death["runs_total"].sum()
-        balls = death.shape[0]
-        death_econ = (runs / balls) * 6 if balls > 0 else IPL_AVG_DEATH_ECON
-    else:
-        death_econ = IPL_AVG_DEATH_ECON
+    # Define weights based on number of matches found
+    match_ids = sorted(team_bbb["match_id"].unique())
+    # We want to map each match_id to a weight. Most recent match_id (max) gets 1.0
+    num_matches = len(match_ids)
+    if num_matches == 0:
+        return {
+            "recent_death_econ": IPL_AVG_DEATH_ECON,
+            "recent_mid_econ": IPL_AVG_ECONOMY,
+            "recent_boundary_pct": IPL_AVG_BOUNDARY_PCT,
+            "recent_top_order_runs": 150.0,
+            "recent_top_order_sr": 135.0,
+            "recent_pp_wickets": 1.0,
+        }
 
-    # 2. Middle Overs Economy (overs 7-15)
-    mid = team_bbb[(team_bbb["bowling_team"] == team) & (team_bbb["over"].between(7, 15))]
-    if not mid.empty:
-        mid_econ = (mid["runs_total"].sum() / mid.shape[0]) * 6
-    else:
-        mid_econ = IPL_AVG_ECONOMY
+    weights = np.linspace(0.6, 1.0, num_matches)
+    id_to_weight = dict(zip(match_ids, weights, strict=False))
 
-    # 3. Batting: Top Order (Overs 1-10)
-    top_bat = team_bbb[(team_bbb["batting_team"] == team) & (team_bbb["over"] <= 10)]
-    if not top_bat.empty:
-        match_runs = top_bat.groupby("match_id")["runs_total"].sum().mean()
-        # Aggregated SR
-        top_sr = (top_bat["runs_off_bat"].sum() / top_bat.shape[0]) * 100
-    else:
-        match_runs = 150.0
-        top_sr = 135.0
+    # Simplified Weighted Mean approach:
+    # 1. Calculate per-match stats
+    match_stats = []
+    for m_id in match_ids:
+        m_data = team_bbb[team_bbb["match_id"] == m_id]
+        
+        # Death
+        d = m_data[(m_data["bowling_team"] == team) & (m_data["over"] >= 16)]
+        d_econ = (d["runs_total"].sum() / d.shape[0] * 6) if not d.empty else IPL_AVG_DEATH_ECON
+        
+        # Mid
+        mi = m_data[(m_data["bowling_team"] == team) & (m_data["over"].between(7, 15))]
+        mi_econ = (mi["runs_total"].sum() / mi.shape[0] * 6) if not mi.empty else IPL_AVG_ECONOMY
+        
+        # Batting
+        tb = m_data[(m_data["batting_team"] == team) & (m_data["over"] <= 10)]
+        tb_runs = tb["runs_total"].sum() if not tb.empty else 150.0
+        tb_sr = (tb["runs_batter"].sum() / tb.shape[0] * 100) if not tb.empty else 135.0
+        tb_b_pct = (tb["runs_batter"].isin([4, 6]).sum() / tb.shape[0] * 100) if not tb.empty else 15.0
+        
+        # PP Wickets
+        pp = m_data[(m_data["bowling_team"] == team) & (m_data["over"] <= 5)]
+        pp_w = pp["player_out"].count() if not pp.empty else 1.0
+        
+        match_stats.append({
+            "death": d_econ,
+            "mid": mi_econ,
+            "runs": tb_runs,
+            "sr": tb_sr,
+            "bpct": tb_b_pct,
+            "ppw": pp_w,
+            "weight": id_to_weight[m_id]
+        })
 
-    # 4. Boundary Pct
-    if not top_bat.empty:
-        b_runs = top_bat[top_bat["runs_off_bat"].isin([4, 6])]["runs_off_bat"].sum()
-        b_pct = (b_runs / top_bat["runs_total"].sum()) * 100 if top_bat["runs_total"].sum() > 0 else IPL_AVG_BOUNDARY_PCT
-    else:
-        b_pct = IPL_AVG_BOUNDARY_PCT
-
-    return {
-        "recent_death_econ": float(death_econ),
-        "recent_mid_econ": float(mid_econ),
-        "recent_boundary_pct": float(b_pct),
-        "recent_top_order_runs": float(match_runs),
-        "recent_top_order_sr": float(top_sr),
+    # 2. Aggregate using weights
+    total_w = sum(id_to_weight.values())
+    res = {
+        "recent_death_econ": sum(s["death"] * s["weight"] for s in match_stats) / total_w,
+        "recent_mid_econ": sum(s["mid"] * s["weight"] for s in match_stats) / total_w,
+        "recent_boundary_pct": sum(s["bpct"] * s["weight"] for s in match_stats) / total_w,
+        "recent_top_order_runs": sum(s["runs"] * s["weight"] for s in match_stats) / total_w,
+        "recent_top_order_sr": sum(s["sr"] * s["weight"] for s in match_stats) / total_w,
+        "recent_pp_wickets": sum(s["ppw"] * s["weight"] for s in match_stats) / total_w,
     }
+    return res
 
 
 # ---------------------------------------------------------------------------
