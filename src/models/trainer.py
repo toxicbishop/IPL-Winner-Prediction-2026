@@ -79,11 +79,7 @@ def train_all(df: pd.DataFrame, models_dir: str, tournament: str) -> dict:
         print("  Applying exponential time decay weights to training samples.")
 
     individual_models = [
-        RandomForestModel(save_dir=models_dir),
         XGBoostModel(save_dir=models_dir),
-        LightGBMModel(save_dir=models_dir),
-        NeuralNetworkModel(save_dir=models_dir),
-        ExtraTreesModel(save_dir=models_dir),
     ]
 
     for model in individual_models:
@@ -94,7 +90,7 @@ def train_all(df: pd.DataFrame, models_dir: str, tournament: str) -> dict:
                 _apply_tuned_params(model, best_params)
 
             cv = model.cross_validate(df_train)
-            model.train(df_train, sample_weight=sample_weights)
+            model.train(df_train, sample_weight=sample_weights, calibrate=True)
             train_metrics = model.evaluate(df_train)
             test_metrics = model.evaluate(df_test)
 
@@ -139,36 +135,6 @@ def train_all(df: pd.DataFrame, models_dir: str, tournament: str) -> dict:
             if importance is not None:
                 results[model.name]["top_features"] = importance.head(10).to_dict()
 
-    # Ensemble
-    with mlflow.start_run(run_name=f"{tournament}_ensemble"):
-        ensemble = EnsembleModel(save_dir=models_dir)
-        ensemble.train(df_train)
-        ens_test = ensemble.evaluate(df_test)
-        ens_train = ensemble.evaluate(df_train)
-        ens_2024 = ensemble.evaluate_2024(df_test)
-        ensemble.save()
-
-        mlflow.log_param("tournament", tournament)
-        mlflow.log_metric("test_accuracy", ens_test["accuracy"])
-        mlflow.log_metric("test_precision", ens_test["precision"])
-        mlflow.log_metric("test_recall", ens_test["recall"])
-        mlflow.log_metric("test_f1", ens_test["f1_score"])
-
-        if "roc_auc" in ens_test and ens_test["roc_auc"] is not None:
-            mlflow.log_metric("test_roc_auc", ens_test["roc_auc"])
-        if ens_2024:
-            mlflow.log_metric("accuracy_2024", ens_2024["accuracy"])
-
-        results["ensemble"] = {
-            "train_accuracy": ens_train["accuracy"],
-            "test_accuracy": ens_test["accuracy"],
-            "test_precision": ens_test["precision"],
-            "test_recall": ens_test["recall"],
-            "test_f1": ens_test["f1_score"],
-            "test_roc_auc": ens_test.get("roc_auc"),
-            "accuracy_2024": ens_2024.get("accuracy") if ens_2024 else None,
-        }
-
     return results
 
 
@@ -185,7 +151,7 @@ def run_sanity_check(tournament: str = "ipl"):
     df = load_features(paths["features"])
 
     # Baseline features
-    baseline_features = ["form_diff", "batting_str_diff", "bowling_str_diff"]
+    baseline_features = ["t1_last10_form", "t2_last10_form", "win_streak_diff"]
 
     import src.models.base_model as base_model
 

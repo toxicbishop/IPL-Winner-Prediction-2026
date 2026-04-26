@@ -26,25 +26,21 @@ logger = logging.getLogger(__name__)
 from config import CV_FOLDS, MODELS_DIR, RANDOM_STATE
 
 FEATURE_COLS = [
-    # Core (cricket strength engine)
-    "top3_bat_runs_diff",
-    "boundary_pct_diff",
-    "death_bowl_diff",
-    "top3_bowl_econ_diff",
+    # Temporal Performance (Last 5)
+    "last5_top3_runs_diff",
+    "last5_death_bowl_diff",
+    "last5_mid_overs_econ_diff",
+    
+    # Momentum (Last 3 - 10)
     "win_streak_diff",
-    "bowl_vs_bat_diff",
-    "bat_vs_bowl_diff",
-    # Context (anchors strength to match reality)
+    "last3_win_rate_diff",
     "t1_last10_form",
     "t2_last10_form",
+    
+    # Context
     "t1_venue_wr",
-    # Phase-driven (strongest new signals)
-    "top_order_diff",
-    "middle_order_diff",
-    "mid_bowl_diff",
-    # Match Condition (Venue context)
-    "avg_first_innings_score_venue",
-    "bat_venue_interaction",
+    "bat_vs_bowl_diff",
+    "bowl_vs_bat_diff",
 ]
 
 TARGET_COL = "team1_won"

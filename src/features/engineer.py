@@ -19,7 +19,12 @@ import pandas as pd
 
 from config import FORM_WINDOW, H2H_WINDOW_SEASONS, get_tournament_paths
 from src.data.db_utils import get_connection
-from src.features.team_strength import get_team_strength_features, set_db_path
+from src.features.team_strength import (
+    get_recent_team_stats,
+    get_team_strength_features,
+    load_ball_by_ball,
+    set_db_path,
+)
 from src.features.venue_features import (
     get_venue_avg_score,
     get_venue_size,
@@ -93,6 +98,13 @@ def get_recent_form(matches: pd.DataFrame, team: str, before_idx: int, n: int = 
 
     weighted_wins = sum(w * res for w, res in zip(weights, results, strict=False))
     return weighted_wins / sum(weights)
+
+
+def get_last_n_match_ids(matches: pd.DataFrame, team: str, before_idx: int, n: int = 5) -> list:
+    """Returns the match IDs for the last N matches of a team."""
+    past = matches.iloc[:before_idx]
+    team_matches = past[(past["team1"] == team) | (past["team2"] == team)]
+    return team_matches.tail(n)["match_id"].tolist()
 
 
 def get_last_n_form(matches: pd.DataFrame, team: str, before_idx: int, n: int = 10) -> float:
@@ -252,148 +264,65 @@ def build_features(matches_df: pd.DataFrame, db_path: str, tournament: str) -> p
     set_db_path(db_path)
     df = matches_df.reset_index(drop=True)
     champions_by_season = load_champions_by_season(db_path)
-
-    overall_rates = get_all_time_win_rates(df)
+    bbb_df = load_ball_by_ball()
 
     rows = []
     for idx, row in df.iterrows():
         t1 = row["team1"]
         t2 = row["team2"]
-        venue = row.get("venue", "")
+        venue = row["venue"]
         season = int(row["season"])
 
-        f = {}
+        f = {
+            "match_id": row["match_id"],
+            "season": season,
+            "team1": t1,
+            "team2": t2,
+        }
 
-        f["match_id"] = row["match_id"]
-        f["season"] = season
-        f["team1"] = t1
-        f["team2"] = t2
-
-        # Toss features (kept minimal - only as context, not primary signal)
-        f["toss_won_by_team1"] = int(row.get("toss_won_by_team1", 0))
-        f["toss_decision_bat"] = int(row.get("toss_decision_bat", 0))
-
-        # Cumulative all-time win rates (NO LEAKAGE)
-        if idx > 10:
-            past_rates = get_all_time_win_rates(df.iloc[:idx])
-        else:
-            past_rates = overall_rates
-        f["t1_alltime_wr"] = past_rates.get(t1, 0.5)
-        f["t2_alltime_wr"] = past_rates.get(t2, 0.5)
-        f["wr_diff"] = f["t1_alltime_wr"] - f["t2_alltime_wr"]
-
-        # Last 3 seasons win rate
-        f["t1_last3yr_wr"] = get_last_n_seasons_wr(df, t1, season, n_seasons=3)
-        f["t2_last3yr_wr"] = get_last_n_seasons_wr(df, t2, season, n_seasons=3)
-        f["last3yr_wr_diff"] = f["t1_last3yr_wr"] - f["t2_last3yr_wr"]
-
-        # Recent match form (last 5 matches - exponentially weighted)
-        f["t1_recent_form"] = get_recent_form(df, t1, idx, FORM_WINDOW)
-        f["t2_recent_form"] = get_recent_form(df, t2, idx, FORM_WINDOW)
-        f["form_diff"] = f["t1_recent_form"] - f["t2_recent_form"]
-
-        # Longer-term form (last 10 matches - stable trend)
+        # ============================================================
+        # MOMENTUM (Last 3 - 10 matches)
+        # ============================================================
         f["t1_last10_form"] = get_last_n_form(df, t1, idx, 10)
         f["t2_last10_form"] = get_last_n_form(df, t2, idx, 10)
-        f["last10_form_diff"] = f["t1_last10_form"] - f["t2_last10_form"]
-
-        # NRR Form (approximate - margin based)
-        f["t1_recent_nrr"] = get_recent_nrr(df, t1, idx, FORM_WINDOW)
-        f["t2_recent_nrr"] = get_recent_nrr(df, t2, idx, FORM_WINDOW)
-        f["nrr_diff"] = f["t1_recent_nrr"] - f["t2_recent_nrr"]
-
-        # Season form
-        f["t1_season_form"] = get_season_form(df, t1, season, idx)
-        f["t2_season_form"] = get_season_form(df, t2, season, idx)
-
-        # Head-to-head
-        f["h2h_t1_wr"] = get_h2h_rate(df, t1, t2, idx, H2H_WINDOW_SEASONS)
-
-        # Venue win rates
-        f["t1_venue_wr"] = get_venue_win_rate(df, t1, venue, idx)
-        f["t2_venue_wr"] = get_venue_win_rate(df, t2, venue, idx)
-        f["venue_wr_diff"] = f["t1_venue_wr"] - f["t2_venue_wr"]
-
-        # Home advantage
-        f["t1_is_home"] = is_home_ground(t1, venue, tournament)
-        f["t2_is_home"] = is_home_ground(t2, venue, tournament)
-
-        # Recent titles (last 5 seasons)
-        f["t1_recent_titles"] = get_recent_titles(t1, season, champions_by_season, window=5)
-        f["t2_recent_titles"] = get_recent_titles(t2, season, champions_by_season, window=5)
-        f["recent_title_diff"] = f["t1_recent_titles"] - f["t2_recent_titles"]
-
-        # Venue pitch features
-        f["venue_avg_score"] = get_venue_avg_score(venue)
-        f["venue_toss_impact"] = get_venue_toss_impact(venue)
-        f["venue_size"] = get_venue_size(venue)
-
-        # ============================================================
-        # TEAM STRENGTH (from player stats + ball-by-ball)
-        # ============================================================
-        t1_str = get_team_strength_features(t1, season)
-        t2_str = get_team_strength_features(t2, season)
-
-        # Core batting/bowling strength
-        f["t1_batting_str"] = t1_str["batting_strength"]
-        f["t2_batting_str"] = t2_str["batting_strength"]
-        f["batting_str_diff"] = t1_str["batting_strength"] - t2_str["batting_strength"]
-        f["t1_bowling_str"] = t1_str["bowling_strength"]
-        f["t2_bowling_str"] = t2_str["bowling_strength"]
-        f["bowling_str_diff"] = t1_str["bowling_strength"] - t2_str["bowling_strength"]
-
-        # Advanced Player Metrics (from player_stats)
-        f["top5_bat_sr_diff"] = t1_str["top5_bat_sr"] - t2_str["top5_bat_sr"]
-        f["top3_bowl_econ_diff"] = t1_str["top3_bowl_econ"] - t2_str["top3_bowl_econ"]
-        f["top3_bat_runs_diff"] = t1_str["top3_bat_runs"] - t2_str["top3_bat_runs"]
-
-        # Ball-by-ball derived features
-        f["death_bowl_diff"] = t1_str["death_bowl_str"] - t2_str["death_bowl_str"]
-        f["boundary_pct_diff"] = t1_str["boundary_pct"] - t2_str["boundary_pct"]
-        f["pp_bowl_diff"] = t1_str["pp_bowl_str"] - t2_str["pp_bowl_str"]
-        f["mid_bowl_diff"] = t1_str["mid_bowl_str"] - t2_str["mid_bowl_str"]
-
-        # ============================================================
-        # ROLE-BASED BATTING SPLITS (phase-driven)
-        # ============================================================
-        f["top_order_diff"] = t1_str["top_order_strength"] - t2_str["top_order_strength"]
-        f["middle_order_diff"] = t1_str["middle_order_strength"] - t2_str["middle_order_strength"]
-        f["finisher_diff"] = t1_str["finisher_strength"] - t2_str["finisher_strength"]
-
-        # ============================================================
-        # VENUE SCORE INTERACTION (Match Condition Modeling)
-        # ============================================================
-        # Raw average first innings score at venue
-        venue_stats = get_venue_avg_score(venue) # This is normalized in venue_features.py
-        # Let's get the raw score for better context
-        from src.features.venue_features import _compute_venue_stats, GLOBAL_AVG_SCORE
-        raw_venue_avg = _compute_venue_stats().get(venue, {}).get("avg_score", GLOBAL_AVG_SCORE)
-        f["avg_first_innings_score_venue"] = raw_venue_avg
         
-        # Batting strength advantage at high-scoring grounds
-        # (batting_str_diff * (venue_avg - 160))
-        f["bat_venue_interaction"] = f["batting_str_diff"] * (raw_venue_avg - 160.0)
+        f["t1_last3_wr"] = get_last_n_form(df, t1, idx, 3)
+        f["t2_last3_wr"] = get_last_n_form(df, t2, idx, 3)
+        f["last3_win_rate_diff"] = f["t1_last3_wr"] - f["t2_last3_wr"]
 
-        # ============================================================
-        # INTERACTION FEATURES (Momentum, Matchups)
-        # ============================================================
-
-        # Momentum (Form * Venue mastery * Batting Strength)
-        f["t1_momentum"] = f["t1_recent_form"] * f["t1_venue_wr"] * f["t1_batting_str"]
-        f["t2_momentum"] = f["t2_recent_form"] * f["t2_venue_wr"] * f["t2_batting_str"]
-        f["momentum_diff"] = f["t1_momentum"] - f["t2_momentum"]
-
-        # Pro-level features
-        f["is_playoff"] = 1 if row.get("stage", "League") != "League" else 0
         s1 = get_win_streak(df, t1, idx)
         s2 = get_win_streak(df, t2, idx)
         f["win_streak_diff"] = s1 - s2
-        f["bat_vs_bowl_diff"] = f["t1_batting_str"] - f["t2_bowling_str"]
-        f["bowl_vs_bat_diff"] = f["t1_bowling_str"] - f["t2_batting_str"]
+
+        # ============================================================
+        # TEMPORAL TEAM STRENGTH (Last 5 matches)
+        # ============================================================
+        m_ids1 = get_last_n_match_ids(df, t1, idx, 5)
+        m_ids2 = get_last_n_match_ids(df, t2, idx, 5)
+        
+        stats1 = get_recent_team_stats(t1, m_ids1, bbb_df)
+        stats2 = get_recent_team_stats(t2, m_ids2, bbb_df)
+        
+        f["last5_top3_runs_diff"] = stats1["recent_top_order_runs"] - stats2["recent_top_order_runs"]
+        f["last5_top_order_sr_diff"] = stats1["recent_top_order_sr"] - stats2["recent_top_order_sr"]
+        f["last5_death_bowl_diff"] = stats1["recent_death_econ"] - stats2["recent_death_econ"]
+        f["last5_mid_overs_econ_diff"] = stats1["recent_mid_econ"] - stats2["recent_mid_econ"]
+        f["last5_boundary_pct_diff"] = stats1["recent_boundary_pct"] - stats2["recent_boundary_pct"]
+
+        # ============================================================
+        # CONTEXT (Venue, All-time balance)
+        # ============================================================
+        f["t1_venue_wr"] = get_venue_win_rate(df, t1, venue, idx)
+        f["t2_venue_wr"] = get_venue_win_rate(df, t2, venue, idx)
+        
+        # All-time season strength (for baseline anchor)
+        t1_str = get_team_strength_features(t1, season)
+        t2_str = get_team_strength_features(t2, season)
+        f["bat_vs_bowl_diff"] = t1_str["batting_strength"] - t2_str["bowling_strength"]
+        f["bowl_vs_bat_diff"] = t1_str["bowling_strength"] - t2_str["batting_strength"]
 
         # Target
         f["team1_won"] = int(row["team1_won"])
-
         rows.append(f)
 
     features_df = pd.DataFrame(rows)

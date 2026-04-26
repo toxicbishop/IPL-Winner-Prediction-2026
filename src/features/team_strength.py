@@ -378,6 +378,62 @@ def get_batting_split_strengths(team: str, season: int) -> dict:
     }
 
 
+def get_recent_team_stats(team: str, recent_match_ids: list, bbb_df: pd.DataFrame) -> dict:
+    """Computes batting/bowling metrics from a specific set of recent matches."""
+    if not recent_match_ids or bbb_df is None or bbb_df.empty:
+        return {
+            "recent_death_econ": IPL_AVG_DEATH_ECON,
+            "recent_mid_econ": IPL_AVG_ECONOMY,
+            "recent_boundary_pct": IPL_AVG_BOUNDARY_PCT,
+            "recent_top_order_runs": 150.0,
+            "recent_top_order_sr": 135.0,
+        }
+
+    # Filter BBB for these matches and team
+    team_bbb = bbb_df[bbb_df["match_id"].isin(recent_match_ids)]
+    
+    # 1. Death Bowling (overs 16-20)
+    death = team_bbb[(team_bbb["bowling_team"] == team) & (team_bbb["over"] >= 16)]
+    if not death.empty:
+        runs = death["runs_total"].sum()
+        balls = death.shape[0]
+        death_econ = (runs / balls) * 6 if balls > 0 else IPL_AVG_DEATH_ECON
+    else:
+        death_econ = IPL_AVG_DEATH_ECON
+
+    # 2. Middle Overs Economy (overs 7-15)
+    mid = team_bbb[(team_bbb["bowling_team"] == team) & (team_bbb["over"].between(7, 15))]
+    if not mid.empty:
+        mid_econ = (mid["runs_total"].sum() / mid.shape[0]) * 6
+    else:
+        mid_econ = IPL_AVG_ECONOMY
+
+    # 3. Batting: Top Order (Overs 1-10)
+    top_bat = team_bbb[(team_bbb["batting_team"] == team) & (team_bbb["over"] <= 10)]
+    if not top_bat.empty:
+        match_runs = top_bat.groupby("match_id")["runs_total"].sum().mean()
+        # Aggregated SR
+        top_sr = (top_bat["runs_off_bat"].sum() / top_bat.shape[0]) * 100
+    else:
+        match_runs = 150.0
+        top_sr = 135.0
+
+    # 4. Boundary Pct
+    if not top_bat.empty:
+        b_runs = top_bat[top_bat["runs_off_bat"].isin([4, 6])]["runs_off_bat"].sum()
+        b_pct = (b_runs / top_bat["runs_total"].sum()) * 100 if top_bat["runs_total"].sum() > 0 else IPL_AVG_BOUNDARY_PCT
+    else:
+        b_pct = IPL_AVG_BOUNDARY_PCT
+
+    return {
+        "recent_death_econ": float(death_econ),
+        "recent_mid_econ": float(mid_econ),
+        "recent_boundary_pct": float(b_pct),
+        "recent_top_order_runs": float(match_runs),
+        "recent_top_order_sr": float(top_sr),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
